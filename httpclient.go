@@ -9,17 +9,18 @@ import (
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"time"
 
 	"go.uber.org/zap"
 )
 
 type Client interface {
-	Get(ctx context.Context, url string, opt *ClientOptions, dest interface{}) (int, error)
-	Put(ctx context.Context, url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
-	Patch(ctx context.Context, url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
-	Post(ctx context.Context, url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
-	Del(ctx context.Context, url string, opt *ClientOptions, dest interface{}) (int, error)
+	Get(ctx context.Context, baseUrl string, query string, opt *ClientOptions, dest interface{}) (int, error)
+	Put(ctx context.Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
+	Del(ctx context.Context, baseUrl string, query string, opt *ClientOptions, dest interface{}) (int, error)
+	Post(ctx context.Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
+	Patch(ctx context.Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
 	doRequest(ctx context.Context, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
 }
 
@@ -56,28 +57,33 @@ func ClientProvider(l *zap.Logger) Client {
 	}
 }
 
-func (h *httpCLientImpl) Get(ctx context.Context, url string, opt *ClientOptions, dest interface{}) (int, error) {
+func (h *httpCLientImpl) Get(ctx context.Context, baseUrl string, query string, opt *ClientOptions, dest interface{}) (int, error) {
 	opt.method = "GET"
+	opt.url = baseUrl + url.QueryEscape(query)
 	return h.doRequest(ctx, opt, nil, dest)
 }
 
-func (h *httpCLientImpl) Put(ctx context.Context, url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+func (h *httpCLientImpl) Put(ctx context.Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
 	opt.method = "PUT"
+	opt.url = baseUrl + url.QueryEscape(query)
 	return 0, nil
 }
 
-func (h *httpCLientImpl) Patch(ctx context.Context, url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+func (h *httpCLientImpl) Patch(ctx context.Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
 	opt.method = "PATCH"
+	opt.url = baseUrl + url.QueryEscape(query)
 	return 0, nil
 }
 
-func (h *httpCLientImpl) Post(ctx context.Context, url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+func (h *httpCLientImpl) Post(ctx context.Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
 	opt.method = "POST"
+	opt.url = baseUrl + url.QueryEscape(query)
 	return 0, nil
 }
 
-func (h *httpCLientImpl) Del(ctx context.Context, url string, opt *ClientOptions, dest interface{}) (int, error) {
+func (h *httpCLientImpl) Del(ctx context.Context, baseUrl string, query string, opt *ClientOptions, dest interface{}) (int, error) {
 	opt.method = "DELETE"
+	opt.url = baseUrl + url.QueryEscape(query)
 	return 0, nil
 }
 
