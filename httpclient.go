@@ -2,7 +2,6 @@ package stdlib
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,12 +15,12 @@ import (
 )
 
 type Client interface {
-	Get(ctx context.Context, baseUrl string, query string, opt *ClientOptions, dest interface{}) (int, error)
-	Put(ctx context.Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
-	Del(ctx context.Context, baseUrl string, query string, opt *ClientOptions, dest interface{}) (int, error)
-	Post(ctx context.Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
-	Patch(ctx context.Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
-	doRequest(ctx context.Context, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
+	Get(ctx Context, baseUrl string, query string, opt *ClientOptions, dest interface{}) (int, error)
+	Put(ctx Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
+	Del(ctx Context, baseUrl string, query string, opt *ClientOptions, dest interface{}) (int, error)
+	Post(ctx Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
+	Patch(ctx Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
+	doRequest(ctx Context, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
 }
 
 type ClientOptions struct {
@@ -57,38 +56,53 @@ func ClientProvider(l *zap.Logger) Client {
 	}
 }
 
-func (h *httpCLientImpl) Get(ctx context.Context, baseUrl string, query string, opt *ClientOptions, dest interface{}) (int, error) {
+func (h *httpCLientImpl) Get(ctx Context, baseUrl string, query string, opt *ClientOptions, dest interface{}) (int, error) {
+	if opt == nil {
+		opt = &ClientOptions{}
+	}
 	opt.method = "GET"
 	opt.url = baseUrl + url.QueryEscape(query)
 	return h.doRequest(ctx, opt, nil, dest)
 }
 
-func (h *httpCLientImpl) Put(ctx context.Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+func (h *httpCLientImpl) Put(ctx Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+	if opt == nil {
+		opt = &ClientOptions{}
+	}
 	opt.method = "PUT"
 	opt.url = baseUrl + url.QueryEscape(query)
-	return 0, nil
+	return h.doRequest(ctx, opt, body, dest)
 }
 
-func (h *httpCLientImpl) Patch(ctx context.Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+func (h *httpCLientImpl) Patch(ctx Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+	if opt == nil {
+		opt = &ClientOptions{}
+	}
 	opt.method = "PATCH"
 	opt.url = baseUrl + url.QueryEscape(query)
-	return 0, nil
+	return h.doRequest(ctx, opt, body, dest)
 }
 
-func (h *httpCLientImpl) Post(ctx context.Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+func (h *httpCLientImpl) Post(ctx Context, baseUrl string, query string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+	if opt == nil {
+		opt = &ClientOptions{}
+	}
 	opt.method = "POST"
 	opt.url = baseUrl + url.QueryEscape(query)
-	return 0, nil
+	return h.doRequest(ctx, opt, body, dest)
 }
 
-func (h *httpCLientImpl) Del(ctx context.Context, baseUrl string, query string, opt *ClientOptions, dest interface{}) (int, error) {
+func (h *httpCLientImpl) Del(ctx Context, baseUrl string, query string, opt *ClientOptions, dest interface{}) (int, error) {
+	if opt == nil {
+		opt = &ClientOptions{}
+	}
 	opt.method = "DELETE"
 	opt.url = baseUrl + url.QueryEscape(query)
-	return 0, nil
+	return h.doRequest(ctx, opt, nil, dest)
 }
 
-func (h *httpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
-	logger := extractLoggerFromContext(ctx, h.logger)
+func (h *httpCLientImpl) doRequest(ctx Context, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+	logger := extractLoggerFromContext(ctx.Context, h.logger)
 	if req, err := http.NewRequest(opt.method, opt.url, nil); err != nil {
 		return 0, err
 	} else {
@@ -96,8 +110,10 @@ func (h *httpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions, body
 			return 0, err
 		} else {
 			hd := opt.Headers
-			for k, v := range *hd {
-				req.Header.Set(k, v)
+			if hd != nil {
+				for k, v := range *hd {
+					req.Header.Set(k, v)
+				}
 			}
 			req.Header.Add("Accept", "application/json")
 			req.Header.Add("Content-Type", contentType)
@@ -112,6 +128,7 @@ func (h *httpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions, body
 			if resp, err := h.c.Do(req); err != nil {
 				return 0, err
 			} else {
+				logger.Info("Response received", zap.Int("status", resp.StatusCode), zap.Int64("RequestTime", time.Since(now).Milliseconds()))
 				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 					if resp.Body != nil && resp.ContentLength != 0 {
 						if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
@@ -171,6 +188,14 @@ func (h *httpCLientImpl) formulatePayload(body interface{}, rType string) (strin
 	case "graphql":
 		return "", nil, fmt.Errorf("graphql is not supported yet")
 	default:
-		return "", nil, fmt.Errorf("unknown request type")
+		if body != nil {
+			if strBody, err := json.Marshal(body); err != nil {
+				return "", nil, err
+			} else {
+				return "application/json", ioutil.NopCloser(bytes.NewBuffer(strBody)), nil
+			}
+		} else {
+			return "application/json", nil, nil
+		}
 	}
 }
