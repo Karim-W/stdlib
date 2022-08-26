@@ -31,28 +31,18 @@ type ClientOptions struct {
 	RequestType   string             `json:"request_type"`
 	url           string
 	method        string
+	logger
 }
 
 type httpCLientImpl struct {
-	logger *zap.Logger
-	c      http.Client
+	l *logger
+	c http.Client
 }
 
-func ClientProvider(l *zap.Logger) Client {
-	if l == nil {
-		if log, err := zap.NewProduction(); err != nil {
-			return &httpCLientImpl{
-				logger: log,
-				c:      http.Client{},
-			}
-		} else {
-			panic("Could not create the http client due to error generating zap logger: " + err.Error())
-		}
-	} else {
-		return &httpCLientImpl{
-			logger: l,
-			c:      http.Client{},
-		}
+func ClientProvider() Client {
+	return &httpCLientImpl{
+		l: getLoggerInstance(),
+		c: http.Client{},
 	}
 }
 
@@ -102,7 +92,6 @@ func (h *httpCLientImpl) Del(ctx Context, baseUrl string, query string, opt *Cli
 }
 
 func (h *httpCLientImpl) doRequest(ctx Context, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
-	logger := extractLoggerFromContext(ctx.Context, h.logger)
 	if req, err := http.NewRequest(opt.method, opt.url, nil); err != nil {
 		return 0, err
 	} else {
@@ -123,12 +112,12 @@ func (h *httpCLientImpl) doRequest(ctx Context, opt *ClientOptions, body interfa
 			now := time.Now()
 			defer func() {
 				latency := time.Since(now).Milliseconds()
-				logger.Sugar().Infof("[%s:%s] Latency:%d", opt.method, opt.url, latency)
+				h.l.Infof("[%s:%s] Latency:%d ms", opt.method, opt.url, latency)
 			}()
 			if resp, err := h.c.Do(req); err != nil {
 				return 0, err
 			} else {
-				logger.Info("Response received", zap.Int("status", resp.StatusCode), zap.Int64("RequestTime", time.Since(now).Milliseconds()))
+				h.l.Info("Response received", zap.Int("status", resp.StatusCode), zap.Int64("RequestTime", time.Since(now).Milliseconds()))
 				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 					if resp.Body != nil && resp.ContentLength != 0 {
 						if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {

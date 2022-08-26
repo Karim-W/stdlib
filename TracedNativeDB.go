@@ -2,7 +2,10 @@ package stdlib
 
 import (
 	"database/sql"
+	"sync"
 	"time"
+
+	_ "github.com/lib/pq"
 )
 
 type NativeDatabase interface {
@@ -26,12 +29,29 @@ type NativeDatabase interface {
 }
 
 type dbImpl struct {
-	db *sql.DB
+	logger   *logger
+	db       *sql.DB
+	pingLock sync.Mutex
 }
 
-func NativeDatabaseProvider(db *sql.DB) NativeDatabase {
-	return &dbImpl{
-		db: db,
+func NativeDatabaseProvider(Driver string, DSN string) NativeDatabase {
+	l := getLoggerInstance()
+	switch Driver {
+	case "postgres":
+		if db, err := sql.Open("postgres", DSN); err != nil {
+			panic(err)
+		} else {
+			l.Info("[DATABASE]\tSucessfuly Connected to postgres database")
+			ndb := &dbImpl{
+				logger:   getLoggerInstance(),
+				db:       db,
+				pingLock: sync.Mutex{},
+			}
+			ndb.Ping()
+			return ndb
+		}
+	default:
+		panic("Unsupported driver")
 	}
 }
 
@@ -52,14 +72,29 @@ func (d *dbImpl) Conn(ctx Context) (*sql.Conn, error) {
 }
 
 func (d *dbImpl) Exec(query string, args ...any) (sql.Result, error) {
+	d.logger.Info("[DATABASE]\tExecuting query: ", query, " with args: ", args)
 	return d.db.Exec(query, args...)
 }
 
 func (d *dbImpl) ExecContext(ctx Context, query string, args ...any) (sql.Result, error) {
-	return d.db.ExecContext(ctx.Context, query, args...)
+	now := time.Now()
+	if res, err := d.db.ExecContext(ctx.Context, query, args...); err != nil {
+		d.logger.Errorf("[DATABASE]\tError executing query: %s with args: %v with error : %w ", query, args, err)
+		return res, err
+	} else {
+		d.logger.Infof("[DATABASE]\tExecuted query: %s with args: %v in %d microseconds", query, args, time.Since(now).Microseconds())
+		return res, err
+	}
 }
 
 func (d *dbImpl) Ping() error {
+	d.pingLock.Lock()
+	go func() {
+		for {
+			time.Sleep(time.Second * 5)
+			d.db.Ping()
+		}
+	}()
 	return d.db.Ping()
 }
 
@@ -76,18 +111,22 @@ func (d *dbImpl) PrepareContext(ctx Context, query string) (*sql.Stmt, error) {
 }
 
 func (d *dbImpl) Query(query string, args ...any) (*sql.Rows, error) {
+	d.logger.Infof("[DATABASE]\tExecuting query: %s with args: %v", query, args)
 	return d.db.Query(query, args...)
 }
 
 func (d *dbImpl) QueryContext(ctx Context, query string, args ...any) (*sql.Rows, error) {
+	d.logger.Info("[DATABASE]\tExecuting query: ", query, " with args: ", args)
 	return d.db.QueryContext(ctx.Context, query, args...)
 }
 
 func (d *dbImpl) QueryRow(query string, args ...any) *sql.Row {
+	d.logger.Infof("[DATABASE]\tExecuting query: %s with args: %v", query, args)
 	return d.db.QueryRow(query, args...)
 }
 
 func (d *dbImpl) QueryRowContext(ctx Context, query string, args ...any) *sql.Row {
+	d.logger.Infof("[DATABASE]\tExecuting query: %s with args: %v", query, args)
 	return d.db.QueryRowContext(ctx.Context, query, args...)
 }
 

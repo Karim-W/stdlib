@@ -3,8 +3,6 @@ package stdlib
 import (
 	"fmt"
 	"testing"
-
-	"go.uber.org/zap"
 )
 
 type UserRoleRequest struct {
@@ -35,8 +33,7 @@ type Headers struct {
 }
 
 func TestGetRequst(t *testing.T) {
-	l, _ := zap.NewProduction()
-	c := ClientProvider(l)
+	c := ClientProvider()
 	res := map[string]interface{}{}
 	ctx := NewContext()
 	stat, err := c.Get(ctx, "http://localhost:8081/health-check", "", nil, &res)
@@ -48,8 +45,7 @@ func TestGetRequst(t *testing.T) {
 }
 
 func TestCreateClient(t *testing.T) {
-	l, _ := zap.NewProduction()
-	c := ClientProvider(l)
+	c := ClientProvider()
 	res := UserRoleRequest{}
 	body := map[string]interface{}{
 		"name": "test",
