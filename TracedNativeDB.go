@@ -72,8 +72,14 @@ func (d *dbImpl) Conn(ctx Context) (*sql.Conn, error) {
 }
 
 func (d *dbImpl) Exec(query string, args ...any) (sql.Result, error) {
-	d.logger.Info("[DATABASE]\tExecuting query: ", query, " with args: ", args)
-	return d.db.Exec(query, args...)
+	now := time.Now()
+	if res, err := d.db.Exec(query, args...); err != nil {
+		d.logger.Errorf("[DATABASE]\tError executing query: %s with args: %v with error : %w ", query, args, err)
+		return res, err
+	} else {
+		d.logger.Infof("[DATABASE]\t[%0.2f ms]\tExecuting query: %s with args: %v", float64(time.Since(now).Microseconds())/1000.0, query, args)
+		return res, err
+	}
 }
 
 func (d *dbImpl) ExecContext(ctx Context, query string, args ...any) (sql.Result, error) {
@@ -82,7 +88,7 @@ func (d *dbImpl) ExecContext(ctx Context, query string, args ...any) (sql.Result
 		d.logger.Errorf("[DATABASE]\tError executing query: %s with args: %v with error : %w ", query, args, err)
 		return res, err
 	} else {
-		d.logger.Infof("[DATABASE]\tExecuted query: %s with args: %v in %d microseconds", query, args, time.Since(now).Microseconds())
+		d.logger.Infof("[DATABASE]\t[%0.2f ms]\tExecuting query: %s with args: %v", float64(time.Since(now).Microseconds())/1000.0, query, args)
 		return res, err
 	}
 }
@@ -111,23 +117,39 @@ func (d *dbImpl) PrepareContext(ctx Context, query string) (*sql.Stmt, error) {
 }
 
 func (d *dbImpl) Query(query string, args ...any) (*sql.Rows, error) {
-	d.logger.Infof("[DATABASE]\tExecuting query: %s with args: %v", query, args)
-	return d.db.Query(query, args...)
+	now := time.Now()
+	if res, err := d.db.Query(query, args...); err != nil {
+		d.logger.Errorf("[DATABASE]\tError executing query: %s with args: %v with error : %w ", query, args, err)
+		return res, err
+	} else {
+		d.logger.Infof("[DATABASE]\t[%0.2f ms]\tExecuting query: %s with args: %v", float64(time.Since(now).Microseconds())/1000.0, query, args)
+		return res, err
+	}
 }
 
 func (d *dbImpl) QueryContext(ctx Context, query string, args ...any) (*sql.Rows, error) {
-	d.logger.Info("[DATABASE]\tExecuting query: ", query, " with args: ", args)
-	return d.db.QueryContext(ctx.Context, query, args...)
+	now := time.Now()
+	if res, err := d.db.QueryContext(ctx.Context, query, args...); err != nil {
+		d.logger.Errorf("[DATABASE]\tError executing query: %s with args: %v with error : %w ", query, args, err)
+		return nil, err
+	} else {
+		d.logger.Infof("[DATABASE]\t[%0.2f ms]\tExecuting query: %s with args: %v", float64(time.Since(now).Microseconds())/1000.0, query, args)
+		return res, err
+	}
 }
 
 func (d *dbImpl) QueryRow(query string, args ...any) *sql.Row {
-	d.logger.Infof("[DATABASE]\tExecuting query: %s with args: %v", query, args)
-	return d.db.QueryRow(query, args...)
+	now := time.Now()
+	r := d.db.QueryRow(query, args...)
+	d.logger.Infof("[DATABASE]\t[%0.2f ms]\tExecuting query: %s with args: %v", float64(time.Since(now).Microseconds())/1000.0, query, args)
+	return r
 }
 
 func (d *dbImpl) QueryRowContext(ctx Context, query string, args ...any) *sql.Row {
-	d.logger.Infof("[DATABASE]\tExecuting query: %s with args: %v", query, args)
-	return d.db.QueryRowContext(ctx.Context, query, args...)
+	now := time.Now()
+	r := d.db.QueryRowContext(ctx.Context, query, args...)
+	d.logger.Infof("[DATABASE]\t[%0.2f ms]\tExecuting query: %s with args: %v", float64(time.Since(now).Microseconds())/1000.0, query, args)
+	return r
 }
 
 func (i *dbImpl) SetConnMaxIdleTime(d time.Duration) {

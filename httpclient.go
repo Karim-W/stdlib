@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-
-	"go.uber.org/zap"
 )
 
 type Client interface {
@@ -110,14 +108,11 @@ func (h *httpCLientImpl) doRequest(ctx Context, opt *ClientOptions, body interfa
 				req.Body = reqBody
 			}
 			now := time.Now()
-			defer func() {
-				latency := time.Since(now).Milliseconds()
-				h.l.Infof("[%s:%s] Latency:%d ms", opt.method, opt.url, latency)
-			}()
 			if resp, err := h.c.Do(req); err != nil {
 				return 0, err
 			} else {
-				h.l.Info("Response received", zap.Int("status", resp.StatusCode), zap.Int64("RequestTime", time.Since(now).Milliseconds()))
+				latency := time.Since(now).Microseconds()
+				h.l.Infof("[HTTP Client]\t%s\t%s\tStatus:%d\tLatency:%0.2f ms", opt.method, opt.url, resp.StatusCode, float64(latency)/1000.0)
 				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 					if resp.Body != nil && resp.ContentLength != 0 {
 						if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {

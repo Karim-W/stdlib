@@ -2,7 +2,6 @@ package stdlib
 
 import (
 	"fmt"
-	"runtime"
 	"testing"
 
 	_ "github.com/lib/pq"
@@ -13,11 +12,10 @@ const (
 	port     = 5432
 	user     = "postgres"
 	password = "secret"
-	dbname   = "dex2"
+	dbname   = "temp"
 )
 
 func TestNativeDbCon(t *testing.T) {
-	runtime.GOMAXPROCS(10)
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname)
@@ -27,4 +25,15 @@ func TestNativeDbCon(t *testing.T) {
 		panic(err)
 	}
 	fmt.Println(res)
+	res, err = d.ExecContext(NewContext(), "INSERT INTO vibes VALUES (3,'hello',1,'ABC')")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(res)
+	res, err = d.ExecContext(NewContext(), "INSERT INTO vibes VALUES (4,'hello',2,'ABC')")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println(res)
+
 }
