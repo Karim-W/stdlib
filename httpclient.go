@@ -24,12 +24,12 @@ type Client interface {
 type ClientOptions struct {
 	Authorization string             `json:"authorization"`
 	ContentType   string             `json:"content_type"`
+	Query         string             `json:"query"`
 	Headers       *map[string]string `json:"headers"`
 	Timeout       *time.Time         `json:"timeout"`
 	RequestType   string             `json:"request_type"`
 	url           string
 	method        string
-	logger
 }
 
 type httpCLientImpl struct {
