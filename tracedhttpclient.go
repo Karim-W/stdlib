@@ -38,6 +38,7 @@ func TracedClientProvider(
 	return &tracedhttpCLientImpl{
 		l: l,
 		c: http.Client{},
+		t: t,
 	}
 }
 
