@@ -30,6 +30,7 @@ type NativeDatabase interface {
 	SetConnMaxIdleTime(d time.Duration)
 	SetConnMaxLifetime(d time.Duration)
 	Stats() sql.DBStats
+	WithLogger(l *zap.Logger) NativeDatabase
 }
 
 type dbImpl struct {
@@ -92,7 +93,7 @@ func TracedNativeDBWrapper(
 	}
 }
 
-func (d *dbImpl) WithLogger(l *zap.Logger) *dbImpl {
+func (d *dbImpl) WithLogger(l *zap.Logger) NativeDatabase {
 	d.logger = l
 	return d
 }
