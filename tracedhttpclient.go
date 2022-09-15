@@ -170,17 +170,9 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 			if body != nil {
 				req.Body = reqBody
 			}
-			now := time.Now()
 			if resp, err := h.c.Do(req); err != nil {
 				return 0, err
 			} else {
-				latency := time.Since(now).Microseconds()
-				h.l.Info("[HTTP Client]",
-					zap.String("method", opt.method),
-					zap.String("url", opt.url),
-					zap.Int("status", resp.StatusCode),
-					zap.Float64("latency", float64(latency)/1000.0),
-				)
 				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 					if resp.Body != nil && resp.ContentLength != 0 {
 						if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
@@ -189,6 +181,9 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 					}
 					return resp.StatusCode, nil
 				} else {
+					body, _ := ioutil.ReadAll(resp.Body)
+					h.l.Error("error response from server", zap.Int("code", resp.StatusCode),
+						zap.String("response", string(body)))
 					return resp.StatusCode, fmt.Errorf("got non 200 code (%d) calling %s", resp.StatusCode, opt.url)
 				}
 			}
