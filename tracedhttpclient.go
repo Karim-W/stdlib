@@ -181,9 +181,11 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 					}
 					return resp.StatusCode, nil
 				} else {
-					body, _ := ioutil.ReadAll(resp.Body)
-					h.l.Error("error response from server", zap.Int("code", resp.StatusCode),
-						zap.String("response", string(body)))
+					if resp.Body != nil && resp.ContentLength != 0 {
+						body, _ := ioutil.ReadAll(resp.Body)
+						h.l.Error("error response from server", zap.Int("code", resp.StatusCode),
+							zap.String("response", string(body)))
+					}
 					return resp.StatusCode, fmt.Errorf("got non 200 code (%d) calling %s", resp.StatusCode, opt.url)
 				}
 			}
