@@ -174,7 +174,7 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 				return 0, err
 			} else {
 				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-					if resp.Body != nil && resp.ContentLength != 0 {
+					if resp.Body != nil && resp.ContentLength > 2 {
 						if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
 							return resp.StatusCode, fmt.Errorf("error decoding response: %v", err)
 						}
