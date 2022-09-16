@@ -181,7 +181,7 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 					}
 					return resp.StatusCode, nil
 				} else {
-					if resp.Body != nil && resp.ContentLength != 0 {
+					if resp.Body != nil && resp.ContentLength > 2 {
 						body, _ := ioutil.ReadAll(resp.Body)
 						h.l.Error("error response from server", zap.Int("code", resp.StatusCode),
 							zap.String("response", string(body)))
