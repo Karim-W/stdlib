@@ -13,8 +13,8 @@ import (
 )
 
 type NativeDatabase interface {
-	Begin() (*sql.Tx, error)
-	BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error)
+	Begin() (*TracedNativeTx, error)
+	BeginTx(ctx context.Context, opts *sql.TxOptions) (*TracedNativeTx, error)
 	Close() error
 	Conn(ctx context.Context) (*sql.Conn, error)
 	Exec(query string, args ...any) (sql.Result, error)
@@ -98,12 +98,25 @@ func (d *dbImpl) WithLogger(l *zap.Logger) NativeDatabase {
 	return d
 }
 
-func (d *dbImpl) Begin() (*sql.Tx, error) {
-	return d.db.Begin()
+func (d *dbImpl) Begin() (*TracedNativeTx, error) {
+	t, err := d.db.Begin()
+	if err != nil {
+		d.logger.Error("[DATABASE]  Error starting transaction",
+			zap.Error(err))
+		return nil, err
+	}
+	return &TracedNativeTx{t, d.t, d.logger, d.driver, d.name}, nil
 }
 
-func (d *dbImpl) BeginTx(ctx context.Context, opts *sql.TxOptions) (*sql.Tx, error) {
-	return d.db.BeginTx(ctx, opts)
+func (d *dbImpl) BeginTx(ctx context.Context, opts *sql.TxOptions) (*TracedNativeTx, error) {
+	t, err := d.db.BeginTx(ctx, opts)
+	if err != nil {
+		d.logger.Error("[DATABASE]  Error starting transaction",
+			zap.Error(err))
+		return nil, err
+	}
+	tx := &TracedNativeTx{t, d.t, d.logger, d.driver, d.name}
+	return tx, nil
 }
 
 func (d *dbImpl) Close() error {
