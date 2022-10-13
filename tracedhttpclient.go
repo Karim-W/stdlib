@@ -174,19 +174,28 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 				return 0, err
 			} else {
 				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-					if resp.Body != nil && resp.ContentLength > 2 {
+					if resp.Body != nil && resp.ContentLength > 4 {
 						if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
+							h.l.Error("Error decoding response body", zap.Error(err))
 							return resp.StatusCode, fmt.Errorf("error decoding response: %v", err)
 						}
 					}
 					return resp.StatusCode, nil
 				} else {
-					if resp.Body != nil && resp.ContentLength > 2 {
+					if resp.Body != nil && resp.ContentLength > 4 {
 						body, _ := ioutil.ReadAll(resp.Body)
 						h.l.Error("error response from server", zap.Int("code", resp.StatusCode),
 							zap.String("response", string(body)))
+						return resp.StatusCode, fmt.Errorf("got non 200 code (%d) calling %s", resp.StatusCode, opt.url)
+					} else {
+						var respo []byte
+						if err := json.NewDecoder(resp.Body).Decode(&respo); err != nil {
+							h.l.Error("Error decoding response body", zap.Error(err))
+							return resp.StatusCode, fmt.Errorf("error decoding response: %v", err)
+						}
+						h.l.Error("error response from server", zap.Int("code", resp.StatusCode), zap.String("Response", string(respo)))
+						return resp.StatusCode, fmt.Errorf("got non 200 code (%d) calling %s", resp.StatusCode, opt.url)
 					}
-					return resp.StatusCode, fmt.Errorf("got non 200 code (%d) calling %s", resp.StatusCode, opt.url)
 				}
 			}
 		}
