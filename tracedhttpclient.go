@@ -27,9 +27,9 @@ type TracedClient interface {
 }
 
 type tracedhttpCLientImpl struct {
-	l *zap.Logger
-	c http.Client
-	t *tracer.AppInsightsCore
+	l    *zap.Logger
+	c    http.Client
+	t    *tracer.AppInsightsCore
 	auth AuthProvider
 }
 
@@ -44,8 +44,8 @@ func TracedClientProvider(
 	}
 }
 
-func(h *tracedhttpCLientImpl) SetAuthHandler(provider AuthProvider)  {
-	h.auth=provider
+func (h *tracedhttpCLientImpl) SetAuthHandler(provider AuthProvider) {
+	h.auth = provider
 }
 
 func (h *tracedhttpCLientImpl) Get(ctx context.Context, Url string, opt *ClientOptions, dest interface{}) (int, error) {
@@ -174,8 +174,13 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 			req.Header.Add("Accept", "application/json")
 			req.Header.Add("Content-Type", contentType)
 			if h.auth != nil {
-				req.Header.Add("Authorization",h.auth.GetAuthHeader())
+				req.Header.Add("Authorization", h.auth.GetAuthHeader())
 			}
+			ver, tid, _, _, flg := h.t.ExtractTraceInfo(ctx)
+			req.Header.Add(
+				"traceparent",
+				fmt.Sprintf("%s-%s-%s-%s", ver, tid, generateId(16), flg),
+			)
 			if body != nil {
 				req.Body = reqBody
 			}
