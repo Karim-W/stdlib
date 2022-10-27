@@ -176,11 +176,25 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 			if h.auth != nil {
 				req.Header.Add("Authorization", h.auth.GetAuthHeader())
 			}
-			ver, tid, _, _, flg := h.t.ExtractTraceInfo(ctx)
-			req.Header.Add(
-				"traceparent",
-				fmt.Sprintf("%s-%s-%s-%s", ver, tid, generateId(16), flg),
-			)
+			sid, err := GenerateParentId()
+			ver, tid, _, rid, flg := h.t.ExtractTraceInfo(ctx)
+			if err == nil {
+				req.Header.Add(
+					"traceparent",
+					fmt.Sprintf("%s-%s-%s-%s", ver, tid, sid, flg),
+				)
+			} else {
+				req.Header.Add(
+					"traceparent",
+					fmt.Sprintf(
+						"%s-%s-%s-%s",
+						ver,
+						tid,
+						rid,
+						flg,
+					),
+				)
+			}
 			if body != nil {
 				req.Body = reqBody
 			}
