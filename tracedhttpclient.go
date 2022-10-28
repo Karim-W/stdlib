@@ -63,205 +63,139 @@ func (h *tracedhttpCLientImpl) SetAuthHandler(provider AuthProvider) {
 }
 
 func (h *tracedhttpCLientImpl) Get(ctx context.Context, Url string, opt *ClientOptions, dest interface{}) (int, error) {
-	if h.clientName == "" {
-		h.clientName = Url
-	}
 	if opt == nil {
 		opt = &ClientOptions{}
 	}
 	opt.method = "GET"
 	opt.url = Url + url.QueryEscape(opt.Query)
-	now := time.Now()
 	code, err := h.doRequest(ctx, opt, nil, dest)
-	if err != nil {
-		h.t.TraceException(ctx, err, 0, nil)
-		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, false, now, time.Now(), map[string]string{
-			"code":         fmt.Sprintf("%d", code),
-			"errorMessage": err.Error(),
-		})
-		return code, err
-	} else {
-		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, true, now, time.Now(), map[string]string{
-			"code": fmt.Sprintf("%d", code),
-		})
-	}
+
 	return code, err
 }
 
 func (h *tracedhttpCLientImpl) Put(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
-	if h.clientName == "" {
-		h.clientName = Url
-	}
 	if opt == nil {
 		opt = &ClientOptions{}
 	}
 	opt.method = "PUT"
 	opt.url = Url + url.QueryEscape(opt.Query)
-	now := time.Now()
 	code, err := h.doRequest(ctx, opt, body, dest)
-	if err != nil {
-		h.t.TraceException(ctx, err, 0, nil)
-		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, false, now, time.Now(), map[string]string{
-			"code":         fmt.Sprintf("%d", code),
-			"errorMessage": err.Error(),
-		})
-		return code, err
-	} else {
-		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, true, now, time.Now(), map[string]string{
-			"code": fmt.Sprintf("%d", code),
-		})
-	}
+
 	return code, err
 }
 
 func (h *tracedhttpCLientImpl) Patch(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
-	if h.clientName == "" {
-		h.clientName = Url
-	}
 	if opt == nil {
 		opt = &ClientOptions{}
 	}
 	opt.method = "PATCH"
 	opt.url = Url + url.QueryEscape(opt.Query)
-	now := time.Now()
 	code, err := h.doRequest(ctx, opt, body, dest)
-	if err != nil {
-		h.t.TraceException(ctx, err, 0, nil)
-		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, false, now, time.Now(), map[string]string{
-			"code":         fmt.Sprintf("%d", code),
-			"errorMessage": err.Error(),
-		})
-		return code, err
-	} else {
-		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, true, now, time.Now(), map[string]string{
-			"code": fmt.Sprintf("%d", code),
-		})
-	}
+
 	return code, err
 }
 
 func (h *tracedhttpCLientImpl) Post(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
-	if h.clientName == "" {
-		h.clientName = Url
-	}
 	if opt == nil {
 		opt = &ClientOptions{}
 	}
 	opt.method = "POST"
 	opt.url = Url + url.QueryEscape(opt.Query)
-	now := time.Now()
 	code, err := h.doRequest(ctx, opt, body, dest)
-	if err != nil {
-		h.t.TraceException(ctx, err, 0, nil)
-		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, false, now, time.Now(), map[string]string{
-			"code":         fmt.Sprintf("%d", code),
-			"errorMessage": err.Error(),
-		})
-		return code, err
-	} else {
-		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, true, now, time.Now(), map[string]string{
-			"code": fmt.Sprintf("%d", code),
-		})
-	}
+
 	return code, err
 }
 
 func (h *tracedhttpCLientImpl) Del(ctx context.Context, Url string, opt *ClientOptions, dest interface{}) (int, error) {
-	if h.clientName == "" {
-		h.clientName = Url
-	}
 	if opt == nil {
 		opt = &ClientOptions{}
 	}
 	opt.method = "DELETE"
 	opt.url = Url + url.QueryEscape(opt.Query)
-	now := time.Now()
 	code, err := h.doRequest(ctx, opt, nil, dest)
-	if err != nil {
-		h.t.TraceException(ctx, err, 0, nil)
-		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, false, now, time.Now(), map[string]string{
-			"code":         fmt.Sprintf("%d", code),
-			"errorMessage": err.Error(),
-		})
-		return code, err
-	} else {
-		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, true, now, time.Now(), map[string]string{
-			"code": fmt.Sprintf("%d", code),
-		})
-	}
+
 	return code, err
 }
 
 func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
-	if req, err := http.NewRequest(opt.method, opt.url, nil); err != nil {
+	req, err := http.NewRequest(opt.method, opt.url, nil)
+	if err != nil {
 		return 0, err
-	} else {
-		if contentType, reqBody, err := h.formulatePayload(body, opt.RequestType); err != nil {
-			return 0, err
-		} else {
-			hd := opt.Headers
-			if hd != nil {
-				for k, v := range *hd {
-					req.Header.Set(k, v)
-				}
-			}
-			req.Header.Add("Accept", "application/json")
-			req.Header.Add("Content-Type", contentType)
-			if h.auth != nil {
-				req.Header.Add("Authorization", h.auth.GetAuthHeader())
-			}
-			sid, err := GenerateParentId()
-			ver, tid, _, rid, flg := h.t.ExtractTraceInfo(ctx)
-			if err == nil {
-				req.Header.Add(
-					"traceparent",
-					fmt.Sprintf("%s-%s-%s-%s", ver, tid, sid, flg),
-				)
-			} else {
-				req.Header.Add(
-					"traceparent",
-					fmt.Sprintf(
-						"%s-%s-%s-%s",
-						ver,
-						tid,
-						rid,
-						flg,
-					),
-				)
-			}
-			if body != nil {
-				req.Body = reqBody
-			}
-			if resp, err := h.c.Do(req); err != nil {
-				return 0, err
-			} else {
-				if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-					if resp.Body != nil && resp.ContentLength > 4 && dest != nil {
-						if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
-							h.l.Error("Error decoding response body", zap.Error(err))
-							return resp.StatusCode, fmt.Errorf("error decoding response: %v", err)
-						}
-					}
-					return resp.StatusCode, nil
-				} else {
-					if resp.Body != nil && resp.ContentLength > 4 {
-						body, _ := ioutil.ReadAll(resp.Body)
-						h.l.Error("error response from server", zap.Int("code", resp.StatusCode),
-							zap.String("response", string(body)))
-						return resp.StatusCode, fmt.Errorf("got non 200 code (%d) calling %s", resp.StatusCode, opt.url)
-					} else {
-						var respo []byte
-						if err := json.NewDecoder(resp.Body).Decode(&respo); err != nil {
-							h.l.Error("Error decoding response body", zap.Error(err))
-							return resp.StatusCode, fmt.Errorf("error decoding response: %v", err)
-						}
-						h.l.Error("error response from server", zap.Int("code", resp.StatusCode), zap.String("Response", string(respo)))
-						return resp.StatusCode, fmt.Errorf("got non 200 code (%d) calling %s", resp.StatusCode, opt.url)
-					}
-				}
-			}
+	}
+	contentType, reqBody, err := h.formulatePayload(body, opt.RequestType)
+	if err != nil {
+		return 0, err
+	}
+	hd := opt.Headers
+	if hd != nil {
+		for k, v := range *hd {
+			req.Header.Set(k, v)
 		}
 	}
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Content-Type", contentType)
+	if h.auth != nil {
+		req.Header.Add("Authorization", h.auth.GetAuthHeader())
+	}
+	sid, err := GenerateParentId()
+	ver, tid, _, rid, flg := h.t.ExtractTraceInfo(ctx)
+	if err == nil {
+		req.Header.Add(
+			"traceparent",
+			fmt.Sprintf("%s-%s-%s-%s", ver, tid, sid, flg),
+		)
+	} else {
+		req.Header.Add(
+			"traceparent",
+			fmt.Sprintf(
+				"%s-%s-%s-%s",
+				ver,
+				tid,
+				rid,
+				flg,
+			),
+		)
+	}
+	if body != nil {
+		req.Body = reqBody
+	}
+	now := time.Now()
+	resp, err := h.c.Do(req)
+	if err != nil {
+		h.t.TraceException(ctx, err, 0, nil)
+		h.t.TraceDependency(ctx, sid, "http", req.URL.Hostname(),
+			fmt.Sprintf("%s %s", req.Method, req.URL.RequestURI()), false, now, time.Now(), map[string]string{
+				"code":         fmt.Sprintf("%d", resp.StatusCode),
+				"errorMessage": err.Error(),
+			})
+		return resp.StatusCode, err
+	}
+	h.t.TraceDependency(ctx, sid, "http", req.URL.Hostname(),
+		fmt.Sprintf("%s %s", req.Method, req.URL.RequestURI()), resp.StatusCode > 199 && resp.StatusCode < 300, now, time.Now(), map[string]string{
+			"code": fmt.Sprintf("%d", resp.StatusCode),
+		})
+	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if resp.Body != nil && resp.ContentLength > 4 && dest != nil {
+			if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
+				h.l.Error("Error decoding response body", zap.Error(err))
+				return resp.StatusCode, fmt.Errorf("error decoding response: %v", err)
+			}
+		}
+		return resp.StatusCode, nil
+	}
+	if resp.Body != nil && resp.ContentLength > 4 {
+		body, _ := ioutil.ReadAll(resp.Body)
+		h.l.Error("error response from server", zap.Int("code", resp.StatusCode),
+			zap.String("response", string(body)))
+		return resp.StatusCode, fmt.Errorf("got non 200 code (%d) calling %s", resp.StatusCode, opt.url)
+	}
+	var respo []byte
+	if err := json.NewDecoder(resp.Body).Decode(&respo); err != nil {
+		h.l.Error("Error decoding response body", zap.Error(err))
+		return resp.StatusCode, fmt.Errorf("error decoding response: %v", err)
+	}
+	h.l.Error("error response from server", zap.Int("code", resp.StatusCode), zap.String("Response", string(respo)))
+	return resp.StatusCode, fmt.Errorf("got non 200 code (%d) calling %s", resp.StatusCode, opt.url)
 }
 
 func (h *tracedhttpCLientImpl) formulatePayload(body interface{}, rType string) (string, io.ReadCloser, error) {
