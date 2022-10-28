@@ -27,10 +27,11 @@ type TracedClient interface {
 }
 
 type tracedhttpCLientImpl struct {
-	l    *zap.Logger
-	c    http.Client
-	t    *tracer.AppInsightsCore
-	auth AuthProvider
+	l          *zap.Logger
+	c          http.Client
+	t          *tracer.AppInsightsCore
+	auth       AuthProvider
+	clientName string
 }
 
 func TracedClientProvider(
@@ -44,11 +45,27 @@ func TracedClientProvider(
 	}
 }
 
+func TracedClientProviderWithName(
+	t *tracer.AppInsightsCore,
+	l *zap.Logger,
+	clientName string,
+) TracedClient {
+	return &tracedhttpCLientImpl{
+		l:          l,
+		c:          http.Client{},
+		t:          t,
+		clientName: clientName,
+	}
+}
+
 func (h *tracedhttpCLientImpl) SetAuthHandler(provider AuthProvider) {
 	h.auth = provider
 }
 
 func (h *tracedhttpCLientImpl) Get(ctx context.Context, Url string, opt *ClientOptions, dest interface{}) (int, error) {
+	if h.clientName == "" {
+		h.clientName = Url
+	}
 	if opt == nil {
 		opt = &ClientOptions{}
 	}
@@ -58,19 +75,23 @@ func (h *tracedhttpCLientImpl) Get(ctx context.Context, Url string, opt *ClientO
 	code, err := h.doRequest(ctx, opt, nil, dest)
 	if err != nil {
 		h.t.TraceException(ctx, err, 0, nil)
-		h.t.TraceDependency(ctx, "0000", "http", Url, opt.method+" "+Url, false, now, time.Now(), map[string]string{
+		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, false, now, time.Now(), map[string]string{
 			"code":         fmt.Sprintf("%d", code),
 			"errorMessage": err.Error(),
 		})
 		return code, err
+	} else {
+		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, true, now, time.Now(), map[string]string{
+			"code": fmt.Sprintf("%d", code),
+		})
 	}
-	h.t.TraceDependency(ctx, "0000", "http", Url, opt.method+" "+Url, true, now, time.Now(), map[string]string{
-		"code": fmt.Sprintf("%d", code),
-	})
 	return code, err
 }
 
 func (h *tracedhttpCLientImpl) Put(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+	if h.clientName == "" {
+		h.clientName = Url
+	}
 	if opt == nil {
 		opt = &ClientOptions{}
 	}
@@ -80,19 +101,23 @@ func (h *tracedhttpCLientImpl) Put(ctx context.Context, Url string, opt *ClientO
 	code, err := h.doRequest(ctx, opt, body, dest)
 	if err != nil {
 		h.t.TraceException(ctx, err, 0, nil)
-		h.t.TraceDependency(ctx, "0000", "http", Url, opt.method+" "+Url, false, now, time.Now(), map[string]string{
+		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, false, now, time.Now(), map[string]string{
 			"code":         fmt.Sprintf("%d", code),
 			"errorMessage": err.Error(),
 		})
 		return code, err
+	} else {
+		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, true, now, time.Now(), map[string]string{
+			"code": fmt.Sprintf("%d", code),
+		})
 	}
-	h.t.TraceDependency(ctx, "0000", "http", Url, opt.method+" "+Url, true, now, time.Now(), map[string]string{
-		"code": fmt.Sprintf("%d", code),
-	})
 	return code, err
 }
 
 func (h *tracedhttpCLientImpl) Patch(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+	if h.clientName == "" {
+		h.clientName = Url
+	}
 	if opt == nil {
 		opt = &ClientOptions{}
 	}
@@ -102,19 +127,23 @@ func (h *tracedhttpCLientImpl) Patch(ctx context.Context, Url string, opt *Clien
 	code, err := h.doRequest(ctx, opt, body, dest)
 	if err != nil {
 		h.t.TraceException(ctx, err, 0, nil)
-		h.t.TraceDependency(ctx, "0000", "http", Url, opt.method+" "+Url, false, now, time.Now(), map[string]string{
+		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, false, now, time.Now(), map[string]string{
 			"code":         fmt.Sprintf("%d", code),
 			"errorMessage": err.Error(),
 		})
 		return code, err
+	} else {
+		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, true, now, time.Now(), map[string]string{
+			"code": fmt.Sprintf("%d", code),
+		})
 	}
-	h.t.TraceDependency(ctx, "0000", "http", Url, opt.method+" "+Url, true, now, time.Now(), map[string]string{
-		"code": fmt.Sprintf("%d", code),
-	})
 	return code, err
 }
 
 func (h *tracedhttpCLientImpl) Post(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+	if h.clientName == "" {
+		h.clientName = Url
+	}
 	if opt == nil {
 		opt = &ClientOptions{}
 	}
@@ -124,19 +153,23 @@ func (h *tracedhttpCLientImpl) Post(ctx context.Context, Url string, opt *Client
 	code, err := h.doRequest(ctx, opt, body, dest)
 	if err != nil {
 		h.t.TraceException(ctx, err, 0, nil)
-		h.t.TraceDependency(ctx, "0000", "http", Url, opt.method+" "+Url, false, now, time.Now(), map[string]string{
+		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, false, now, time.Now(), map[string]string{
 			"code":         fmt.Sprintf("%d", code),
 			"errorMessage": err.Error(),
 		})
 		return code, err
+	} else {
+		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, true, now, time.Now(), map[string]string{
+			"code": fmt.Sprintf("%d", code),
+		})
 	}
-	h.t.TraceDependency(ctx, "0000", "http", Url, opt.method+" "+Url, true, now, time.Now(), map[string]string{
-		"code": fmt.Sprintf("%d", code),
-	})
 	return code, err
 }
 
 func (h *tracedhttpCLientImpl) Del(ctx context.Context, Url string, opt *ClientOptions, dest interface{}) (int, error) {
+	if h.clientName == "" {
+		h.clientName = Url
+	}
 	if opt == nil {
 		opt = &ClientOptions{}
 	}
@@ -146,15 +179,16 @@ func (h *tracedhttpCLientImpl) Del(ctx context.Context, Url string, opt *ClientO
 	code, err := h.doRequest(ctx, opt, nil, dest)
 	if err != nil {
 		h.t.TraceException(ctx, err, 0, nil)
-		h.t.TraceDependency(ctx, "0000", "http", Url, opt.method+" "+Url, false, now, time.Now(), map[string]string{
+		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, false, now, time.Now(), map[string]string{
 			"code":         fmt.Sprintf("%d", code),
 			"errorMessage": err.Error(),
 		})
 		return code, err
+	} else {
+		h.t.TraceDependency(ctx, "0000", "http", h.clientName, opt.method+" "+Url, true, now, time.Now(), map[string]string{
+			"code": fmt.Sprintf("%d", code),
+		})
 	}
-	h.t.TraceDependency(ctx, "0000", "http", Url, opt.method+" "+Url, true, now, time.Now(), map[string]string{
-		"code": fmt.Sprintf("%d", code),
-	})
 	return code, err
 }
 
