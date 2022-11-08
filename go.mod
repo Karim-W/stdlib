@@ -11,8 +11,10 @@ require (
 
 require (
 	code.cloudfoundry.org/clock v1.0.0 // indirect
+	github.com/go-redis/redis v6.15.9+incompatible
 	github.com/gofrs/uuid v4.3.0+incompatible // indirect
 	github.com/microsoft/ApplicationInsights-Go v0.4.4 // indirect
+	github.com/patrickmn/go-cache v2.1.0+incompatible
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 )
