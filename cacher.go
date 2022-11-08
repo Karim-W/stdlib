@@ -3,6 +3,7 @@ package stdlib
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	tracer "github.com/BetaLixT/appInsightsTrace"
@@ -27,6 +28,8 @@ type Cache interface {
 	SetCtx(ctx context.Context, key string, value interface{}) error
 	Delete(key string) error
 	DeleteCtx(ctx context.Context, key string) error
+	Keys(pattern string) ([]string, error)
+	KeysCtx(ctx context.Context, pattern string) ([]string, error)
 	WithLogger(l *zap.Logger) Cache
 	WithTracer(t *tracer.AppInsightsCore) Cache
 	WithName(name string) Cache
@@ -225,6 +228,46 @@ func (c *cacheImpl) DeleteCtx(ctx context.Context, key string) error {
 	}
 	return nil
 }
+func (c *cacheImpl) Keys(pattern string) ([]string, error) {
+	return c.KeysCtx(context.TODO(), pattern)
+}
+
+func (c *cacheImpl) KeysCtx(ctx context.Context, pattern string) ([]string, error) {
+	now := time.Now()
+	var res []string
+	var err error
+	switch c.typ {
+	case REDIS_CACHE_TYPE:
+		res, err = c.fetchKeysFromRedisCache(ctx, pattern)
+	case MEMORY_CACHE_TYPE:
+		res, err = c.fetchKeysFromMemcache(ctx, pattern)
+	}
+	end := time.Now()
+	if err != nil {
+		c.lgr.Error("[Cache] Error fetching keys from cache", zap.String("pattern", pattern), zap.Error(err))
+		if c.tracer != nil {
+			c.tracer.TraceException(ctx, err, 0, map[string]string{
+				"error":     "Error fetching keys from cache",
+				"message":   "Error fetching keys from cache",
+				"cacheType": c.typ,
+				"elasped":   end.Sub(now).String(),
+			})
+			c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "KEYS", false, now, end, map[string]string{
+				"cacheType": c.typ,
+				"pattern":   pattern,
+			})
+		}
+		return nil, err
+	}
+	c.lgr.Info("[Cache] Keys", zap.String("pattern", pattern), zap.String("elasped", end.Sub(now).String()))
+	if c.tracer != nil {
+		c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "KEYS", true, now, end, map[string]string{
+			"cacheType": c.typ,
+			"pattern":   pattern,
+		})
+	}
+	return res, nil
+}
 
 //===============================================================================	Redis	Cache	=========================================================================
 
@@ -250,6 +293,13 @@ func (c *cacheImpl) deleteFromRedisCache(
 	return c.redis.Del(key).Err()
 }
 
+func (c *cacheImpl) fetchKeysFromRedisCache(
+	ctx context.Context,
+	key string,
+) ([]string, error) {
+	return c.redis.Keys(key).Result()
+}
+
 // ===============================================================================	Memory	Cache	=========================================================================
 func (c *cacheImpl) fetchFromMemcache(ctx context.Context, key string) (interface{}, error) {
 	v, ok := c.mem.Get(key)
@@ -267,4 +317,14 @@ func (c *cacheImpl) setMemcache(ctx context.Context, key string, value interface
 func (c *cacheImpl) deleteFromMemcache(ctx context.Context, key string) error {
 	c.mem.Delete(key)
 	return nil
+}
+func (c *cacheImpl) fetchKeysFromMemcache(ctx context.Context, pattern string) ([]string, error) {
+	keys := c.mem.Items()
+	var res []string
+	for key, _ := range keys {
+		if strings.Contains(key, pattern) {
+			res = append(res, key)
+		}
+	}
+	return res, nil
 }

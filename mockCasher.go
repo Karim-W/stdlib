@@ -51,6 +51,15 @@ func (f *failedMockCache) DeleteCtx(ctx context.Context, key string) error {
 func (f *failedMockCache) WithName(name string) Cache {
 	return f
 }
+
+func (f *failedMockCache) Keys(pattern string) ([]string, error) {
+	return nil, err_Sample_Error
+}
+
+func (f *failedMockCache) KeysCtx(ctx context.Context, pattern string) ([]string, error) {
+	return nil, err_Sample_Error
+}
+
 func (m *mockCache) WithName(name string) Cache {
 	return m
 }
@@ -91,4 +100,12 @@ func (m *mockCache) Delete(key string) error {
 
 func (m *mockCache) DeleteCtx(ctx context.Context, key string) error {
 	return nil
+}
+
+func (m *mockCache) Keys(pattern string) ([]string, error) {
+	return []string{}, nil
+}
+
+func (m *mockCache) KeysCtx(ctx context.Context, pattern string) ([]string, error) {
+	return []string{}, nil
 }
