@@ -137,24 +137,27 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 	if h.auth != nil {
 		req.Header.Add("Authorization", h.auth.GetAuthHeader())
 	}
-	sid, err := GenerateParentId()
-	ver, tid, _, rid, flg := h.t.ExtractTraceInfo(ctx)
-	if err == nil {
-		req.Header.Add(
-			"traceparent",
-			fmt.Sprintf("%s-%s-%s-%s", ver, tid, sid, flg),
-		)
-	} else {
-		req.Header.Add(
-			"traceparent",
-			fmt.Sprintf(
-				"%s-%s-%s-%s",
-				ver,
-				tid,
-				rid,
-				flg,
-			),
-		)
+	ver, tid, rid, sid, flg := "", "", "", "", ""
+	if h.t != nil {
+		sid, err := GenerateParentId()
+		ver, tid, _, rid, flg = h.t.ExtractTraceInfo(ctx)
+		if err == nil {
+			req.Header.Add(
+				"traceparent",
+				fmt.Sprintf("%s-%s-%s-%s", ver, tid, sid, flg),
+			)
+		} else {
+			req.Header.Add(
+				"traceparent",
+				fmt.Sprintf(
+					"%s-%s-%s-%s",
+					ver,
+					tid,
+					rid,
+					flg,
+				),
+			)
+		}
 	}
 	if body != nil {
 		req.Body = reqBody
@@ -162,18 +165,22 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 	now := time.Now()
 	resp, err := h.c.Do(req)
 	if err != nil {
-		h.t.TraceException(ctx, err, 0, nil)
-		h.t.TraceDependency(ctx, sid, "http", req.URL.Hostname(),
-			fmt.Sprintf("%s %s", req.Method, req.URL.RequestURI()), false, now, time.Now(), map[string]string{
-				"code":         fmt.Sprintf("%d", resp.StatusCode),
-				"errorMessage": err.Error(),
-			})
+		if h.t != nil {
+			h.t.TraceException(ctx, err, 0, nil)
+			h.t.TraceDependency(ctx, sid, "http", req.URL.Hostname(),
+				fmt.Sprintf("%s %s", req.Method, req.URL.RequestURI()), false, now, time.Now(), map[string]string{
+					"code":         fmt.Sprintf("%d", resp.StatusCode),
+					"errorMessage": err.Error(),
+				})
+		}
 		return resp.StatusCode, err
 	}
-	h.t.TraceDependency(ctx, sid, "http", req.URL.Hostname(),
-		fmt.Sprintf("%s %s", req.Method, req.URL.RequestURI()), resp.StatusCode > 199 && resp.StatusCode < 300, now, time.Now(), map[string]string{
-			"code": fmt.Sprintf("%d", resp.StatusCode),
-		})
+	if h.t != nil {
+		h.t.TraceDependency(ctx, sid, "http", req.URL.Hostname(),
+			fmt.Sprintf("%s %s", req.Method, req.URL.RequestURI()), resp.StatusCode > 199 && resp.StatusCode < 300, now, time.Now(), map[string]string{
+				"code": fmt.Sprintf("%d", resp.StatusCode),
+			})
+	}
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		if resp.Body != nil && resp.ContentLength > 4 && dest != nil {
 			if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
