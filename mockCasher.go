@@ -3,6 +3,7 @@ package stdlib
 import (
 	"context"
 	"fmt"
+	"time"
 
 	tracer "github.com/BetaLixT/appInsightsTrace"
 	"go.uber.org/zap"
@@ -32,6 +33,21 @@ func (f *failedMockCache) WithLogger(l *zap.Logger) Cache {
 
 func (f *failedMockCache) WithTracer(t *tracer.AppInsightsCore) Cache {
 	return f
+}
+
+func (m *mockCache) SetWithExpiration(key string, value interface{}, expiration time.Duration) error {
+	return nil
+}
+
+func (m *mockCache) SetWithExpirationCtx(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+	return nil
+}
+func (f *failedMockCache) SetWithExpiration(key string, value interface{}, expiration time.Duration) error {
+	return err_Sample_Error
+}
+
+func (f *failedMockCache) SetWithExpirationCtx(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+	return err_Sample_Error
 }
 
 func (f *failedMockCache) GetCtx(ctx context.Context, key string) (interface{}, error) {

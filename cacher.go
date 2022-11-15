@@ -24,8 +24,10 @@ var (
 type Cache interface {
 	Get(key string) (interface{}, error)
 	Set(key string, value interface{}) error
+	SetWithExpiration(key string, value interface{}, expiration time.Duration) error
 	GetCtx(ctx context.Context, key string) (interface{}, error)
 	SetCtx(ctx context.Context, key string, value interface{}) error
+	SetWithExpirationCtx(ctx context.Context, key string, value interface{}, expiration time.Duration) error
 	Delete(key string) error
 	DeleteCtx(ctx context.Context, key string) error
 	Keys(pattern string) ([]string, error)
@@ -269,6 +271,48 @@ func (c *cacheImpl) KeysCtx(ctx context.Context, pattern string) ([]string, erro
 	return res, nil
 }
 
+func (c *cacheImpl) SetWithExpirationCtx(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+	now := time.Now()
+	var err error
+	switch c.typ {
+	case REDIS_CACHE_TYPE:
+		err = c.setWithExpiryRedisCache(ctx, key, value, expiration)
+	case MEMORY_CACHE_TYPE:
+		err = c.setWithExpiryMemcache(ctx, key, value, expiration)
+	}
+	end := time.Now()
+	if err != nil {
+		c.lgr.Error("[Cache] Error setting cache", zap.String("key", key), zap.Error(err))
+		if c.tracer != nil {
+			c.tracer.TraceException(ctx, err, 0, map[string]string{
+				"error":     "Error setting cache",
+				"message":   "Error setting cache",
+				"cacheType": c.typ,
+				"elasped":   end.Sub(now).String(),
+			})
+			c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "SET", false, now, end, map[string]string{
+				"cacheType":  c.typ,
+				"key":        key,
+				"expiration": expiration.String(),
+			})
+		}
+		return err
+	}
+	c.lgr.Info("[Cache] Set", zap.String("key", key), zap.String("elasped", end.Sub(now).String()))
+	if c.tracer != nil {
+		c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "SET", true, now, end, map[string]string{
+			"cacheType":  c.typ,
+			"key":        key,
+			"expiration": expiration.String(),
+		})
+	}
+	return nil
+}
+
+func (c *cacheImpl) SetWithExpiration(key string, value interface{}, expiration time.Duration) error {
+	return c.SetWithExpirationCtx(context.TODO(), key, value, expiration)
+}
+
 //===============================================================================	Redis	Cache	=========================================================================
 
 func (c *cacheImpl) fetchFromRedisCache(
@@ -300,6 +344,15 @@ func (c *cacheImpl) fetchKeysFromRedisCache(
 	return c.redis.Keys(key).Result()
 }
 
+func (c *cacheImpl) setWithExpiryRedisCache(
+	ctx context.Context,
+	key string,
+	value interface{},
+	expiry time.Duration,
+) error {
+	return c.redis.Set(key, value, expiry).Err()
+}
+
 // ===============================================================================	Memory	Cache	=========================================================================
 func (c *cacheImpl) fetchFromMemcache(ctx context.Context, key string) (interface{}, error) {
 	v, ok := c.mem.Get(key)
@@ -327,4 +380,9 @@ func (c *cacheImpl) fetchKeysFromMemcache(ctx context.Context, pattern string) (
 		}
 	}
 	return res, nil
+}
+
+func (c *cacheImpl) setWithExpiryMemcache(ctx context.Context, key string, value interface{}, expiry time.Duration) error {
+	c.mem.Set(key, value, expiry)
+	return nil
 }
