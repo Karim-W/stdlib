@@ -165,15 +165,19 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 	now := time.Now()
 	resp, err := h.c.Do(req)
 	if err != nil {
+		code := 502
+		if resp != nil {
+			code = resp.StatusCode
+		}
 		if h.t != nil {
 			h.t.TraceException(ctx, err, 0, nil)
 			h.t.TraceDependency(ctx, sid, "http", req.URL.Hostname(),
 				fmt.Sprintf("%s %s", req.Method, req.URL.RequestURI()), false, now, time.Now(), map[string]string{
-					"code":         fmt.Sprintf("%d", resp.StatusCode),
+					"code":         fmt.Sprintf("%d", code),
 					"errorMessage": err.Error(),
 				})
 		}
-		return resp.StatusCode, err
+		return code, err
 	}
 	if h.t != nil {
 		h.t.TraceDependency(ctx, sid, "http", req.URL.Hostname(),
