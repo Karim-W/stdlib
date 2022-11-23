@@ -6,7 +6,6 @@ import (
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 func getEncoder(args ...string) zapcore.Encoder {
@@ -31,38 +30,14 @@ func initLogger(args ...string) { // for logging to the console
 	zap.ReplaceGlobals(logg)
 }
 
-func initLoggerWithFile(args ...string) {
-	createDirectoryIfNotExists()
-	writerSync := getLogWriter()
-	encoder := getEncoder(args...)
-	core := zapcore.NewCore(encoder, writerSync, zap.DebugLevel)
-	logg := zap.New(core, zap.AddCaller())
-	zap.ReplaceGlobals(logg)
-}
-
 func createDirectoryIfNotExists() {
 	path, _ := os.Getwd()
 	if _, err := os.Stat(path + "/logs"); os.IsNotExist(err) {
 		os.Mkdir(path+"/logs", os.ModePerm)
 	}
 }
-func getLogWriter() zapcore.WriteSyncer {
-	createDirectoryIfNotExists()
-	path, _ := os.Getwd()
-	return zapcore.AddSync(&lumberjack.Logger{ //found this cool package that manages the log files
-		Filename:   path + "/logs/log.log",
-		MaxSize:    500, // megabytes
-		MaxBackups: 3,
-		MaxAge:     28,   //days
-		Compress:   true, // disabled by default
-	})
-}
+
 func ConsoleLogger(args ...string) *zap.SugaredLogger {
 	initLogger(args...)
-	return zap.S()
-}
-
-func FileLogger(args ...string) *zap.SugaredLogger {
-	initLoggerWithFile(args...)
 	return zap.S()
 }
