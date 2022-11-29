@@ -24,6 +24,7 @@ type TracedClient interface {
 	Patch(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
 	doRequest(ctx context.Context, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
 	SetAuthHandler(provider AuthProvider)
+	WithClientName(clientName string) TracedClient
 }
 
 type tracedhttpCLientImpl struct {
@@ -60,6 +61,11 @@ func TracedClientProviderWithName(
 
 func (h *tracedhttpCLientImpl) SetAuthHandler(provider AuthProvider) {
 	h.auth = provider
+}
+
+func (h *tracedhttpCLientImpl) WithClientName(clientName string) TracedClient {
+	h.clientName = clientName
+	return h
 }
 
 func (h *tracedhttpCLientImpl) Get(ctx context.Context, Url string, opt *ClientOptions, dest interface{}) (int, error) {
@@ -163,6 +169,13 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 		req.Body = reqBody
 	}
 	now := time.Now()
+	// remote name
+	var remoteName string
+	if h.clientName != "" {
+		remoteName = h.clientName
+	} else {
+		remoteName = req.URL.Hostname()
+	}
 	resp, err := h.c.Do(req)
 	if err != nil {
 		code := 502
@@ -171,7 +184,7 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 		}
 		if h.t != nil {
 			h.t.TraceException(ctx, err, 0, nil)
-			h.t.TraceDependency(ctx, sid, "http", req.URL.Hostname(),
+			h.t.TraceDependency(ctx, sid, "http", remoteName,
 				fmt.Sprintf("%s %s", req.Method, req.URL.RequestURI()), false, now, time.Now(), map[string]string{
 					"code":         fmt.Sprintf("%d", code),
 					"errorMessage": err.Error(),
@@ -180,7 +193,7 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 		return code, err
 	}
 	if h.t != nil {
-		h.t.TraceDependency(ctx, sid, "http", req.URL.Hostname(),
+		h.t.TraceDependency(ctx, sid, "http", remoteName,
 			fmt.Sprintf("%s %s", req.Method, req.URL.RequestURI()), resp.StatusCode > 199 && resp.StatusCode < 300, now, time.Now(), map[string]string{
 				"code": fmt.Sprintf("%d", resp.StatusCode),
 			})
