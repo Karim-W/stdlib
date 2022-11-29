@@ -23,3 +23,5 @@ func TestPooler(t *testing.T) {
 		}
 	}
 }
+
+func TestDBConnections(t *testing.T) {}

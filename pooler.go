@@ -17,9 +17,9 @@ type entityNode[T any] struct {
 }
 
 type poolImpl[T any] struct {
-	list     *entityNode[T]
-	ptr      *entityNode[T]
-	head     *entityNode[T]
+	list     *entityNode[T] //circullar linked list
+	ptr      *entityNode[T] //pointer to current node
+	head     *entityNode[T] //pointer to head node
 	poolSize int
 	mtx      sync.RWMutex
 }
@@ -30,9 +30,9 @@ func (p *poolImpl[T]) Get() *T {
 	}
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
-	v := p.ptr.Value
+	ent := p.ptr.Value
 	p.ptr = p.ptr.Next
-	return v
+	return ent
 }
 
 func (p *poolImpl[T]) Size() int {
@@ -67,15 +67,16 @@ func NewPool[T any](
 	for i := 0; i < opt.PoolSize; i++ {
 		ent := initFunction()
 		node := &entityNode[T]{Value: ent}
-		if i == 0 {
+		if p.list == nil {
 			p.list = node
 			p.ptr = node
 			p.head = node
 		} else {
-			p.ptr.Next = node
-			p.ptr = node
+			p.list.Next = node
+			p.list = node
 		}
 	}
-	p.ptr.Next = p.head
+	p.list.Next = p.head
+	p.poolSize = opt.PoolSize
 	return p, nil
 }
