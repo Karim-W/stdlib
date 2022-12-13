@@ -1,7 +1,7 @@
 # Stdlib
+![stdlib](docs/stdlib.png)<br/>
 
 This is a collection of standard library modules for go i use in my projects. The package offers a set of modules that are useful in most projects such as logging,tracing,pooling,caching,HTTP Request,etc.
-
 ## Modules
 - [Cache](#cache)
 - [HTTP Client](#http-client)
