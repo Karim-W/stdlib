@@ -24,6 +24,13 @@ type poolImpl[T any] struct {
 	mtx      sync.RWMutex
 }
 
+// Get returns an entity<T> from the pool
+// if the pool is empty, it returns nil
+// params:
+//   - N/A
+//
+// returns:
+//   - *T: entity<T> from the pool
 func (p *poolImpl[T]) Get() *T {
 	if p.ptr == nil {
 		return nil
@@ -35,12 +42,24 @@ func (p *poolImpl[T]) Get() *T {
 	return ent
 }
 
+// Size returns the size of the pool
+// params:
+//   - N/A
+//
+// returns:
+//   - int: size of the pool
 func (p *poolImpl[T]) Size() int {
 	p.mtx.RLock()
 	defer p.mtx.RUnlock()
 	return p.poolSize
 }
 
+// Clear clears the pool
+// params:
+//   - N/A
+//
+// returns:
+//   - N/A
 func (p *poolImpl[T]) Clear() {
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
@@ -49,10 +68,21 @@ func (p *poolImpl[T]) Clear() {
 	p.poolSize = 0
 }
 
+// PoolingOptions is the options for the pool
+// params:
+//   - PoolSize: int => size of the pool
 type PoolingOptions struct {
 	PoolSize int
 }
 
+// NewPool creates a new pool of entities
+// params:
+//   - initFunction: func() *T => function that returns a new entity<T>
+//   - opt: *PoolingOptions => options for the pool
+//
+// returns:
+//   - Pooler<T>: pool of entities
+//   - error: error if any
 func NewPool[T any](
 	initFunction func() *T,
 	opt *PoolingOptions,

@@ -18,6 +18,16 @@ type TracedNativeTx struct {
 	name   string
 }
 
+// QueryContext executes a query that returns rows, typically a SELECT.
+// The args are for any placeholder parameters in the query.
+// params:
+//   - ctx: context
+//   - query: query to execute
+//   - args: arguments to pass to query
+//
+// returns:
+//   - *sql.Rows: rows returned by query
+//   - error: error if any
 func (t *TracedNativeTx) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
 	now := time.Now()
 	res, err := t.Tx.QueryContext(ctx, query, args...)
@@ -51,6 +61,15 @@ func (t *TracedNativeTx) QueryContext(ctx context.Context, query string, args ..
 	return res, err
 }
 
+// Exec executes a query without returning any rows.
+// The args are for any placeholder parameters in the query.
+// params:
+//   - query: query to execute
+//   - args: arguments to pass to query
+//
+// returns:
+//   - sql.Result: result of query
+//   - error: error if any
 func (t *TracedNativeTx) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	now := time.Now()
 	res, err := t.Tx.Query(query, args...)
@@ -69,6 +88,15 @@ func (t *TracedNativeTx) Query(query string, args ...interface{}) (*sql.Rows, er
 	return res, err
 }
 
+// Exec executes a query without returning any rows.
+// The args are for any placeholder parameters in the query.
+// params:
+//   - query: query to execute
+//   - args: arguments to pass to query
+//
+// returns:
+//   - sql.Result: result of query
+//   - error: error if any
 func (t *TracedNativeTx) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
 	now := time.Now()
 	res, err := t.Tx.ExecContext(ctx, query, args...)
@@ -102,6 +130,15 @@ func (t *TracedNativeTx) ExecContext(ctx context.Context, query string, args ...
 	return res, err
 }
 
+// Exec executes a query without returning any rows.
+// The args are for any placeholder parameters in the query.
+// params:
+//   - query: query to execute
+//   - args: arguments to pass to query
+//
+// returns:
+//   - sql.Result: result of query
+//   - error: error if any
 func (t *TracedNativeTx) Exec(query string, args ...interface{}) (sql.Result, error) {
 	now := time.Now()
 	res, err := t.Tx.Exec(query, args...)
@@ -120,6 +157,12 @@ func (t *TracedNativeTx) Exec(query string, args ...interface{}) (sql.Result, er
 	return res, err
 }
 
+// Commit commits the transaction.
+// params:
+//   - none
+//
+// returns:
+//   - error: error if any
 func (t *TracedNativeTx) Commit() error {
 	now := time.Now()
 	err := t.Tx.Commit()
@@ -134,6 +177,12 @@ func (t *TracedNativeTx) Commit() error {
 	return err
 }
 
+// Rollback aborts the transaction.
+// params:
+//   - none
+//
+// returns:
+//   - error: error if any
 func (t *TracedNativeTx) Rollback() error {
 	now := time.Now()
 	err := t.Tx.Rollback()
@@ -148,6 +197,14 @@ func (t *TracedNativeTx) Rollback() error {
 	return err
 }
 
+// QueryContext executes a query that returns rows, typically a SELECT.
+// The args are for any placeholder parameters in the query.
+// params:
+//   - query: query to execute
+//   - args: arguments to pass to query
+//
+// returns:
+//   - *sql.Row: row returned by query
 func (t *TracedNativeTx) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
 	now := time.Now()
 	res := t.Tx.QueryRowContext(ctx, query, args...)
@@ -164,6 +221,14 @@ func (t *TracedNativeTx) QueryRowContext(ctx context.Context, query string, args
 	return res
 }
 
+// QueryContext executes a query that returns rows, typically a SELECT.
+// The args are for any placeholder parameters in the query.
+// params:
+//   - query: query to execute
+//   - args: arguments to pass to query
+//
+// returns:
+//   - *sql.Row: row returned by query
 func (t *TracedNativeTx) QueryRow(query string, args ...interface{}) *sql.Row {
 	now := time.Now()
 	res := t.Tx.QueryRow(query, args...)

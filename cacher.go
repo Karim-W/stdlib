@@ -46,6 +46,13 @@ type cacheImpl struct {
 	lgr    *zap.Logger
 }
 
+// InitRedisCache initializes cache with redis type
+// params:
+//   - url: redis url
+//
+// returns:
+//   - Cache: cache instance
+//   - error: error if any
 func InitRedisCache(
 	url string,
 ) (Cache, error) {
@@ -62,6 +69,13 @@ func InitRedisCache(
 	return c, nil
 }
 
+// InitMemoryCache initializes cache with in-memory type
+// params:
+//   - expiration: expiration time
+//   - cleanupInterval: cleanup interval
+//
+// returns:
+//   - Cache: cache instance
 func InitMemoryCache(
 	expiration time.Duration,
 	cleanupInterval time.Duration,
@@ -73,19 +87,75 @@ func InitMemoryCache(
 	return c
 }
 
+// WithLogger returns a new instance of Cache with a new logger
+// params:
+//   - l: logger
+//
+// returns:
+//   - Cache: cache instance
 func (c *cacheImpl) WithLogger(l *zap.Logger) Cache {
-	c.lgr = l
-	return c
+	newC := &cacheImpl{}
+	if c.redis != nil {
+		newC.redis = c.redis
+	}
+	if c.mem != nil {
+		newC.mem = c.mem
+	}
+	newC.typ = c.typ
+	newC.name = c.name
+	if c.tracer != nil {
+		newC.tracer = c.tracer
+	}
+	newC.lgr = l
+	return newC
 }
 
+// WithName returns a new instance of Cache with a new name
+// params:
+//   - name: name
+//
+// returns:
+//   - Cache: cache instance
 func (c *cacheImpl) WithName(name string) Cache {
-	c.name = name
-	return c
+	newC := &cacheImpl{}
+	if c.redis != nil {
+		newC.redis = c.redis
+	}
+	if c.mem != nil {
+		newC.mem = c.mem
+	}
+	newC.typ = c.typ
+	newC.name = name
+	if c.tracer != nil {
+		newC.tracer = c.tracer
+	}
+	if c.lgr != nil {
+		newC.lgr = c.lgr
+	}
+	return newC
 }
 
+// WithTracer returns a new instance of Cache with a new tracer
+// params:
+//   - t: tracer
+//
+// returns:
+//   - Cache: cache instance
 func (c *cacheImpl) WithTracer(t *tracer.AppInsightsCore) Cache {
-	c.tracer = t
-	return c
+	newC := &cacheImpl{}
+	if c.redis != nil {
+		newC.redis = c.redis
+	}
+	if c.mem != nil {
+		newC.mem = c.mem
+	}
+	newC.typ = c.typ
+	newC.name = c.name
+	newC.tracer = t
+	if c.lgr != nil {
+		newC.lgr = c.lgr
+	}
+	return newC
 }
 
 func (c *cacheImpl) ping() {
@@ -113,9 +183,26 @@ func (c *cacheImpl) ping() {
 }
 
 // ===============================================================================	Core	Funcs	=========================================================================
+
+// Get returns the value for the given key
+// params:
+//   - key:string => key
+//
+// returns:
+//   - interface{}: value
+//   - error: error if any
 func (c *cacheImpl) Get(key string) (interface{}, error) {
 	return c.GetCtx(context.TODO(), key)
 }
+
+// GetCtx returns the value for the given key
+// params:
+//   - ctx: context
+//   - key:string => key
+//
+// returns:
+//   - interface{}: value
+//   - error: error if any
 func (c *cacheImpl) GetCtx(ctx context.Context, key string) (interface{}, error) {
 	now := time.Now()
 	var res interface{}
@@ -153,9 +240,25 @@ func (c *cacheImpl) GetCtx(ctx context.Context, key string) (interface{}, error)
 	return res, nil
 }
 
+// Set sets the value for the given key
+// params:
+//   - key:string => key
+//   - value:interface{} => value
+//
+// returns:
+//   - error: error if any
 func (c *cacheImpl) Set(key string, value interface{}) error {
 	return c.SetCtx(context.TODO(), key, value)
 }
+
+// SetCtx sets the value for the given key
+// params:
+//   - ctx: context
+//   - key:string => key
+//   - value:interface{} => value
+//
+// returns:
+//   - error: error if any
 func (c *cacheImpl) SetCtx(ctx context.Context, key string, value interface{}) error {
 	now := time.Now()
 	var err error
@@ -192,9 +295,23 @@ func (c *cacheImpl) SetCtx(ctx context.Context, key string, value interface{}) e
 	return nil
 }
 
+// Delete deletes the value for the given key
+// params:
+//   - key:string => key
+//
+// returns:
+//   - error: error if any
 func (c *cacheImpl) Delete(key string) error {
 	return c.DeleteCtx(context.TODO(), key)
 }
+
+// DeleteCtx deletes the value for the given key
+// params:
+//   - ctx: context
+//   - key:string => key
+//
+// returns:
+//   - error: error if any
 func (c *cacheImpl) DeleteCtx(ctx context.Context, key string) error {
 	now := time.Now()
 	var err error
@@ -230,10 +347,26 @@ func (c *cacheImpl) DeleteCtx(ctx context.Context, key string) error {
 	}
 	return nil
 }
+
+// Keys returns the keys matching the given pattern
+// params:
+//   - pattern:string => pattern
+//
+// returns:
+//   - []string: keys
+//   - error: error if any
 func (c *cacheImpl) Keys(pattern string) ([]string, error) {
 	return c.KeysCtx(context.TODO(), pattern)
 }
 
+// KeysCtx returns the keys matching the given pattern
+// params:
+//   - ctx: context
+//   - pattern:string => pattern
+//
+// returns:
+//   - []string: keys
+//   - error: error if any
 func (c *cacheImpl) KeysCtx(ctx context.Context, pattern string) ([]string, error) {
 	now := time.Now()
 	var res []string
@@ -271,6 +404,15 @@ func (c *cacheImpl) KeysCtx(ctx context.Context, pattern string) ([]string, erro
 	return res, nil
 }
 
+// SetWithExpirationCtx sets the value for the given key with expiration
+// params:
+//   - ctx: context => context
+//   - key:string => key
+//   - value:interface{} => value
+//   - expiration:time.Duration => expiration
+//
+// returns:
+//   - error: error if any
 func (c *cacheImpl) SetWithExpirationCtx(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
 	now := time.Now()
 	var err error
@@ -309,6 +451,14 @@ func (c *cacheImpl) SetWithExpirationCtx(ctx context.Context, key string, value 
 	return nil
 }
 
+// SetWithExpiration sets the value for the given key with expiration
+// params:
+//   - key:string => key
+//   - value:interface{} => value
+//   - expiration:time.Duration => expiration
+//
+// returns:
+//   - error: error if any
 func (c *cacheImpl) SetWithExpiration(key string, value interface{}, expiration time.Duration) error {
 	return c.SetWithExpirationCtx(context.TODO(), key, value, expiration)
 }
