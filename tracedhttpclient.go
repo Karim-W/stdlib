@@ -27,6 +27,25 @@ type TracedClient interface {
 	WithClientName(clientName string) TracedClient
 }
 
+// ClientOptions is a struct that contains the options for the http client
+// Parameters:
+//
+//	Authorization: The authorization header
+//	ContentType: The content type of the request
+//	Query: The query string
+//	Headers: The headers to be sent with the request
+//	Timeout: The timeout for the request
+//	RequestType: The type of request to be made
+type ClientOptions struct {
+	Authorization string             `json:"authorization"`
+	ContentType   string             `json:"content_type"`
+	Query         string             `json:"query"`
+	Headers       *map[string]string `json:"headers"`
+	Timeout       *time.Time         `json:"timeout"`
+	RequestType   string             `json:"request_type"`
+	url           string
+	method        string
+}
 type tracedhttpCLientImpl struct {
 	l          *zap.Logger
 	c          http.Client
@@ -35,6 +54,13 @@ type tracedhttpCLientImpl struct {
 	clientName string
 }
 
+// TracedClientProvider returns a new instance of the TracedClient
+// Params:
+//   - t: The tracer to be used check the tracer package for more details at https://github.com/BetaLixT/appInsightsTrace
+//   - l: The zap logger to be used
+//
+// Returns:
+//   - TracedClient: The TracedClient instance
 func TracedClientProvider(
 	t *tracer.AppInsightsCore,
 	l *zap.Logger,
@@ -46,6 +72,14 @@ func TracedClientProvider(
 	}
 }
 
+// TracedClientProviderWithName returns a new instance of the TracedClient
+// Params:
+//   - t: The tracer to be used check the tracer package for more details at
+//   - l: The zap logger to be used
+//   - clientName: The name of the client
+//
+// Returns:
+//   - TracedClient: The TracedClient instance
 func TracedClientProviderWithName(
 	t *tracer.AppInsightsCore,
 	l *zap.Logger,
@@ -59,15 +93,37 @@ func TracedClientProviderWithName(
 	}
 }
 
+// SetAuthHandler sets the auth provider for the client
+// Params:
+//   - provider: The auth provider to be used
+//
+// Returns:
+//   - nil
 func (h *tracedhttpCLientImpl) SetAuthHandler(provider AuthProvider) {
 	h.auth = provider
 }
 
+// WithClientName sets the client name for the client
+// Params:
+//   - clientName: The name of the client
+//
+// Returns:
+//   - TracedClient: The TracedClient instance
 func (h *tracedhttpCLientImpl) WithClientName(clientName string) TracedClient {
 	h.clientName = clientName
 	return h
 }
 
+// Get() makes a GET HTTP request
+// Params:
+//   - ctx: context.Context => The context to be used
+//   - Url: string => The url to be called
+//   - opt: *ClientOptions => The options for the request
+//   - dest: any => The destination to be used for the response
+//
+// Returns:
+//   - int: The status code of the response
+//   - error: The error if any
 func (h *tracedhttpCLientImpl) Get(ctx context.Context, Url string, opt *ClientOptions, dest interface{}) (int, error) {
 	if opt == nil {
 		opt = &ClientOptions{}
@@ -79,6 +135,17 @@ func (h *tracedhttpCLientImpl) Get(ctx context.Context, Url string, opt *ClientO
 	return code, err
 }
 
+// Put() makes a PUT HTTP request
+// Params:
+//   - ctx: context.Context => The context to be used
+//   - Url: string => The url to be called
+//   - opt: *ClientOptions => The options for the request
+//   - body: any => The body to be sent with the request
+//   - dest: any => The destination to be used for the response
+//
+// Returns:
+//   - int: The status code of the response
+//   - error: The error if any
 func (h *tracedhttpCLientImpl) Put(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
 	if opt == nil {
 		opt = &ClientOptions{}
@@ -90,6 +157,17 @@ func (h *tracedhttpCLientImpl) Put(ctx context.Context, Url string, opt *ClientO
 	return code, err
 }
 
+// Patch() makes a PATCH HTTP request
+// Params:
+//   - ctx: context.Context => The context to be used
+//   - Url: string => The url to be called
+//   - opt: *ClientOptions => The options for the request
+//   - body: any => The body to be sent with the request
+//   - dest: any => The destination to be used for the response
+//
+// Returns:
+//   - int: The status code of the response
+//   - error: The error if any
 func (h *tracedhttpCLientImpl) Patch(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
 	if opt == nil {
 		opt = &ClientOptions{}
@@ -101,6 +179,17 @@ func (h *tracedhttpCLientImpl) Patch(ctx context.Context, Url string, opt *Clien
 	return code, err
 }
 
+// Post() makes a POST HTTP request
+// Params:
+//   - ctx: context.Context => The context to be used
+//   - Url: string => The url to be called
+//   - opt: *ClientOptions => The options for the request
+//   - body: any => The body to be sent with the request
+//   - dest: any => The destination to be used for the response
+//
+// Returns:
+//   - int: The status code of the response
+//   - error: The error if any
 func (h *tracedhttpCLientImpl) Post(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
 	if opt == nil {
 		opt = &ClientOptions{}
@@ -112,6 +201,16 @@ func (h *tracedhttpCLientImpl) Post(ctx context.Context, Url string, opt *Client
 	return code, err
 }
 
+// Del() makes a DELETE HTTP request
+// Params:
+//   - ctx: context.Context => The context to be used
+//   - Url: string => The url to be called
+//   - opt: *ClientOptions => The options for the request
+//   - dest: any => The destination to be used for the response
+//
+// Returns:
+//   - int: The status code of the response
+//   - error: The error if any
 func (h *tracedhttpCLientImpl) Del(ctx context.Context, Url string, opt *ClientOptions, dest interface{}) (int, error) {
 	if opt == nil {
 		opt = &ClientOptions{}
@@ -199,7 +298,7 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 			})
 	}
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		if resp.Body != nil && resp.ContentLength > 4 && dest != nil {
+		if resp.Body != nil && (resp.ContentLength > 4 || resp.ContentLength == -1) && dest != nil {
 			if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
 				h.l.Error("Error decoding response body", zap.Error(err))
 				return resp.StatusCode, fmt.Errorf("error decoding response: %v", err)

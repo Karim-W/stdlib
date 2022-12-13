@@ -36,10 +36,10 @@ type Headers struct {
 }
 
 func TestGetRequst(t *testing.T) {
-	c := ClientProvider()
+	c, _ := ClientProvider()
 	res := map[string]interface{}{}
-	ctx := NewContext()
-	stat, err := c.Get(ctx, "http://localhost:8081/health-check", "", nil, &res)
+	ctx := context.TODO()
+	stat, err := c.Get(ctx, "http://localhost:8081/health-check", nil, &res)
 	if err != nil {
 		t.Error(err)
 	}
@@ -48,13 +48,13 @@ func TestGetRequst(t *testing.T) {
 }
 
 func TestCreateClient(t *testing.T) {
-	c := ClientProvider()
+	c, _ := ClientProvider()
 	res := UserRoleRequest{}
 	body := map[string]interface{}{
 		"name": "test",
 	}
-	ctx := NewContext()
-	stat, err := c.Post(ctx, "https://httpbin.org/post", "", nil, body, &res)
+	ctx := context.TODO()
+	stat, err := c.Post(ctx, "https://httpbin.org/post", nil, body, &res)
 	if err != nil {
 		t.Error(err)
 	}

@@ -28,7 +28,7 @@ func GenerateRandomBytes(n int) ([]byte, error) {
 
 func GenerateTraceIdRaw() ([]byte, error) {
 	if raw, err := GenerateRandomBytes(16); err != nil {
-		return nil, fmt.Errorf("Failed to generate bytes %w", err)
+		return nil, fmt.Errorf("failed to generate bytes %w", err)
 	} else {
 		return raw, nil
 	}
@@ -36,7 +36,7 @@ func GenerateTraceIdRaw() ([]byte, error) {
 
 func GenerateTraceId() (string, error) {
 	if raw, err := GenerateTraceIdRaw(); err != nil {
-		return "", fmt.Errorf("Failed to generate trace Id %w", err)
+		return "", fmt.Errorf("failed to generate trace Id %w", err)
 	} else {
 		return hex.EncodeToString(raw), nil
 	}
@@ -44,7 +44,7 @@ func GenerateTraceId() (string, error) {
 
 func GenerateParentIdRaw() ([]byte, error) {
 	if raw, err := GenerateRandomBytes(8); err != nil {
-		return nil, fmt.Errorf("Failed to generate butes %w", err)
+		return nil, fmt.Errorf("failed to generate butes %w", err)
 	} else {
 		return raw, nil
 	}
@@ -53,7 +53,7 @@ func GenerateParentIdRaw() ([]byte, error) {
 // Counting on go compiler to inline these plsplspls :)
 func GenerateParentId() (string, error) {
 	if raw, err := GenerateParentIdRaw(); err != nil {
-		return "", fmt.Errorf("Failed to generate parent Id %w", err)
+		return "", fmt.Errorf("failed to generate parent Id %w", err)
 	} else {
 		return hex.EncodeToString(raw), nil
 	}
@@ -68,11 +68,11 @@ func GenerateNewTraceparent(sampled bool) (string, error) {
 	}
 	tid, err := GenerateTraceId()
 	if err != nil {
-		return "", fmt.Errorf("Failed to generate traceId %w", err)
+		return "", fmt.Errorf("failed to generate traceId %w", err)
 	}
 	pid, err := GenerateParentId()
 	if err != nil {
-		return "", fmt.Errorf("Failed to generate parentId %w", err)
+		return "", fmt.Errorf("failed to generate parentId %w", err)
 	}
 	return fmt.Sprintf(
 		"00-%s-%s-%s",
