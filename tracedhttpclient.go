@@ -228,7 +228,7 @@ func (h *tracedhttpCLientImpl) Del(ctx context.Context, Url string, opt *ClientO
 //   - int: The status code of the response
 //   - error: The error if any
 func (h *tracedhttpCLientImpl) Invoke(
-	ctx context.Context, Url string, method string,
+	ctx context.Context, method string, Url string,
 	opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
 	if opt == nil {
 		opt = &ClientOptions{}
