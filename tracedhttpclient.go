@@ -22,6 +22,7 @@ type TracedClient interface {
 	Del(ctx context.Context, Url string, opt *ClientOptions, dest interface{}) (int, error)
 	Post(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
 	Patch(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
+	Invoke(ctx context.Context, method string, url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
 	doRequest(ctx context.Context, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
 	SetAuthHandler(provider AuthProvider)
 	WithClientName(clientName string) TracedClient
@@ -30,21 +31,23 @@ type TracedClient interface {
 // ClientOptions is a struct that contains the options for the http client
 // Parameters:
 //
-//	Authorization: The authorization header
-//	ContentType: The content type of the request
-//	Query: The query string
-//	Headers: The headers to be sent with the request
-//	Timeout: The timeout for the request
-//	RequestType: The type of request to be made
+//		Authorization: The authorization header
+//		ContentType: The content type of the request
+//		Query: The query string
+//		Headers: The headers to be sent with the request
+//		Timeout: The timeout for the request
+//		RequestType: The type of request to be made
+//	  PositionalArgs: The positional arguments to be sent with the request
 type ClientOptions struct {
-	Authorization string             `json:"authorization"`
-	ContentType   string             `json:"content_type"`
-	Query         string             `json:"query"`
-	Headers       *map[string]string `json:"headers"`
-	Timeout       *time.Time         `json:"timeout"`
-	RequestType   string             `json:"request_type"`
-	url           string
-	method        string
+	Authorization  string             `json:"authorization"`
+	ContentType    string             `json:"content_type"`
+	Query          string             `json:"query"`
+	Headers        *map[string]string `json:"headers"`
+	Timeout        *time.Time         `json:"timeout"`
+	RequestType    string             `json:"request_type"`
+	url            string
+	method         string
+	PositionalArgs []string
 }
 type tracedhttpCLientImpl struct {
 	l          *zap.Logger
@@ -130,9 +133,7 @@ func (h *tracedhttpCLientImpl) Get(ctx context.Context, Url string, opt *ClientO
 	}
 	opt.method = "GET"
 	opt.url = Url + url.QueryEscape(opt.Query)
-	code, err := h.doRequest(ctx, opt, nil, dest)
-
-	return code, err
+	return h.doRequest(ctx, opt, nil, dest)
 }
 
 // Put() makes a PUT HTTP request
@@ -152,9 +153,7 @@ func (h *tracedhttpCLientImpl) Put(ctx context.Context, Url string, opt *ClientO
 	}
 	opt.method = "PUT"
 	opt.url = Url + url.QueryEscape(opt.Query)
-	code, err := h.doRequest(ctx, opt, body, dest)
-
-	return code, err
+	return h.doRequest(ctx, opt, body, dest)
 }
 
 // Patch() makes a PATCH HTTP request
@@ -174,9 +173,7 @@ func (h *tracedhttpCLientImpl) Patch(ctx context.Context, Url string, opt *Clien
 	}
 	opt.method = "PATCH"
 	opt.url = Url + url.QueryEscape(opt.Query)
-	code, err := h.doRequest(ctx, opt, body, dest)
-
-	return code, err
+	return h.doRequest(ctx, opt, body, dest)
 }
 
 // Post() makes a POST HTTP request
@@ -196,9 +193,7 @@ func (h *tracedhttpCLientImpl) Post(ctx context.Context, Url string, opt *Client
 	}
 	opt.method = "POST"
 	opt.url = Url + url.QueryEscape(opt.Query)
-	code, err := h.doRequest(ctx, opt, body, dest)
-
-	return code, err
+	return h.doRequest(ctx, opt, body, dest)
 }
 
 // Del() makes a DELETE HTTP request
@@ -217,9 +212,30 @@ func (h *tracedhttpCLientImpl) Del(ctx context.Context, Url string, opt *ClientO
 	}
 	opt.method = "DELETE"
 	opt.url = Url + url.QueryEscape(opt.Query)
-	code, err := h.doRequest(ctx, opt, nil, dest)
+	return h.doRequest(ctx, opt, nil, dest)
+}
 
-	return code, err
+// Invoke()
+// Invokes an HTTP request
+// Params:
+//   - ctx: context.Context => The context to be used
+//   - method: string => The method to be used
+//   - opt: *ClientOptions => The options for the request
+//   - body: any => The body to be sent with the request
+//   - dest: any => The destination to be used for the response
+//
+// Returns:
+//   - int: The status code of the response
+//   - error: The error if any
+func (h *tracedhttpCLientImpl) Invoke(
+	ctx context.Context, Url string, method string,
+	opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
+	if opt == nil {
+		opt = &ClientOptions{}
+	}
+	opt.method = method
+	opt.url = EmbedNamedPositionArgs(Url, opt.PositionalArgs...) + url.QueryEscape(opt.Query)
+	return h.doRequest(ctx, opt, body, dest)
 }
 
 func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions, body interface{}, dest interface{}) (int, error) {
