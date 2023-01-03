@@ -1,4 +1,4 @@
-package stdlib
+package httpclient
 
 import (
 	"context"
@@ -8,6 +8,8 @@ import (
 	"os"
 	"sync"
 	"time"
+
+	"github.com/karim-w/stdlib"
 )
 
 type HTTPRequest interface {
@@ -39,7 +41,7 @@ type HTTPRequest interface {
 		ctx context.Context,
 		method string,
 		url string,
-		opt *ClientOptions,
+		opt *stdlib.ClientOptions,
 		body interface{},
 	) HTTPResponse
 }
@@ -134,7 +136,7 @@ func (r *_HttpRequest) AddBearerAuth(token string) HTTPRequest {
 }
 
 func (r *_HttpRequest) SetNamedPathParams(regexp string, values []string) HTTPRequest {
-	r.readOnlyUrl = EmbedNamedPositionArgs(r.readOnlyUrl, values...)
+	r.readOnlyUrl = stdlib.EmbedNamedPositionArgs(r.readOnlyUrl, values...)
 	return r
 }
 
@@ -211,7 +213,7 @@ func (r *_HttpRequest) Invoke(
 	ctx context.Context,
 	method string,
 	url string,
-	opt *ClientOptions,
+	opt *stdlib.ClientOptions,
 	body interface{},
 ) HTTPResponse {
 	r.WithContext(ctx).

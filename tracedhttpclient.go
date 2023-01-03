@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"time"
@@ -25,7 +26,10 @@ type TracedClient interface {
 	Invoke(ctx context.Context, method string, url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
 	doRequest(ctx context.Context, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
 	SetAuthHandler(provider AuthProvider)
+	WithTransport(transport http.Transport) TracedClient
+	WithStandardTransport() TracedClient
 	WithClientName(clientName string) TracedClient
+	Close()
 }
 
 // ClientOptions is a struct that contains the options for the http client
@@ -51,10 +55,11 @@ type ClientOptions struct {
 }
 type tracedhttpCLientImpl struct {
 	l          *zap.Logger
-	c          http.Client
+	c          *http.Client
 	t          *tracer.AppInsightsCore
 	auth       AuthProvider
 	clientName string
+	transport  *http.Transport
 }
 
 // TracedClientProvider returns a new instance of the TracedClient
@@ -70,9 +75,32 @@ func TracedClientProvider(
 ) TracedClient {
 	return &tracedhttpCLientImpl{
 		l: l,
-		c: http.Client{},
+		c: &http.Client{
+			Timeout: 30 * time.Second,
+		},
 		t: t,
 	}
+}
+
+func (h *tracedhttpCLientImpl) WithTransport(transport http.Transport) TracedClient {
+	h.transport = &transport
+	return h
+}
+
+func (h *tracedhttpCLientImpl) WithStandardTransport() TracedClient {
+	h.transport = &http.Transport{
+		Dial: (&net.Dialer{
+			Timeout:   5 * time.Second,
+			KeepAlive: 5 * time.Second,
+		}).Dial,
+		TLSHandshakeTimeout: 5 * time.Second,
+	}
+	return h
+}
+
+func (h *tracedhttpCLientImpl) Close() {
+	h.c.CloseIdleConnections()
+	h.c = nil
 }
 
 // TracedClientProviderWithName returns a new instance of the TracedClient
@@ -90,7 +118,7 @@ func TracedClientProviderWithName(
 ) TracedClient {
 	return &tracedhttpCLientImpl{
 		l:          l,
-		c:          http.Client{},
+		c:          &http.Client{},
 		t:          t,
 		clientName: clientName,
 	}
@@ -283,7 +311,6 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 	if body != nil {
 		req.Body = reqBody
 	}
-	now := time.Now()
 	// remote name
 	var remoteName string
 	if h.clientName != "" {
@@ -291,11 +318,16 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 	} else {
 		remoteName = req.URL.Hostname()
 	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+	now := time.Now()
 	resp, err := h.c.Do(req)
 	if err != nil {
 		code := 502
 		if resp != nil {
 			code = resp.StatusCode
+			defer resp.Body.Close()
 		}
 		if h.t != nil {
 			h.t.TraceException(ctx, err, 0, nil)
@@ -307,6 +339,7 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 		}
 		return code, err
 	}
+	defer resp.Body.Close()
 	if h.t != nil {
 		h.t.TraceDependency(ctx, sid, "http", remoteName,
 			fmt.Sprintf("%s %s", req.Method, req.URL.RequestURI()), resp.StatusCode > 199 && resp.StatusCode < 300, now, time.Now(), map[string]string{
