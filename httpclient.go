@@ -37,7 +37,7 @@ func ClientProvider() (Client, error) {
 	}
 	return &tracedhttpCLientImpl{
 		l: l,
-		c: http.Client{},
+		c: &http.Client{},
 	}, nil
 }
 
