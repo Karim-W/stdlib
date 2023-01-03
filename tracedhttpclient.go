@@ -271,6 +271,9 @@ func (h *tracedhttpCLientImpl) doRequest(ctx context.Context, opt *ClientOptions
 	if err != nil {
 		return 0, err
 	}
+	if h.transport != nil {
+		h.c.Transport = h.transport
+	}
 	contentType, reqBody, err := h.formulatePayload(body, opt.RequestType)
 	if err != nil {
 		return 0, err
