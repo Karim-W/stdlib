@@ -1,4 +1,4 @@
-package stdlib
+package sqldb
 
 import (
 	"context"
@@ -217,25 +217,29 @@ func (d *dbImpl) ExecContext(ctx context.Context, query string, args ...any) (sq
 			zap.String("query", query),
 			zap.Any("args", args),
 			zap.Error(err))
-		d.t.TraceException(ctx, err, 0, map[string]string{
-			"query": query,
-			"args":  fmt.Sprintf("%v", args),
-			"error": err.Error(),
-		})
-		d.t.TraceDependency(ctx, "", d.driver, d.name, "EXEC", false, now, after, map[string]string{
-			"query": query,
-			"args":  fmt.Sprintf("%v", args),
-			"error": err.Error(),
-		})
+		if d.t != nil {
+			d.t.TraceException(ctx, err, 0, map[string]string{
+				"query": query,
+				"args":  fmt.Sprintf("%v", args),
+				"error": err.Error(),
+			})
+			d.t.TraceDependency(ctx, "", d.driver, d.name, "EXEC", false, now, after, map[string]string{
+				"query": query,
+				"args":  fmt.Sprintf("%v", args),
+				"error": err.Error(),
+			})
+		}
 	} else {
 		d.logger.Info("[DATABASE]  Executing query",
 			zap.String("query", query),
 			zap.Any("args", args),
 			zap.Float64("elapsed(ms)", elapsed))
-		d.t.TraceDependency(ctx, "", d.driver, d.name, "EXEC", true, now, after, map[string]string{
-			"query": query,
-			"args":  fmt.Sprintf("%v", args),
-		})
+		if d.t != nil {
+			d.t.TraceDependency(ctx, "", d.driver, d.name, "EXEC", true, now, after, map[string]string{
+				"query": query,
+				"args":  fmt.Sprintf("%v", args),
+			})
+		}
 	}
 	return res, err
 }
@@ -343,25 +347,29 @@ func (d *dbImpl) QueryContext(ctx context.Context, query string, args ...any) (*
 			zap.String("query", query),
 			zap.Any("args", args),
 			zap.Error(err))
-		d.t.TraceException(ctx, err, 0, map[string]string{
-			"query": query,
-			"args":  fmt.Sprintf("%v", args),
-			"error": err.Error(),
-		})
-		d.t.TraceDependency(ctx, "", d.driver, d.name, "Query", false, now, after, map[string]string{
-			"query": query,
-			"args":  fmt.Sprintf("%v", args),
-			"error": err.Error(),
-		})
+		if d.t != nil {
+			d.t.TraceException(ctx, err, 0, map[string]string{
+				"query": query,
+				"args":  fmt.Sprintf("%v", args),
+				"error": err.Error(),
+			})
+			d.t.TraceDependency(ctx, "", d.driver, d.name, "Query", false, now, after, map[string]string{
+				"query": query,
+				"args":  fmt.Sprintf("%v", args),
+				"error": err.Error(),
+			})
+		}
 	} else {
 		d.logger.Info("[DATABASE]  Executing query",
 			zap.String("query", query),
 			zap.Any("args", args),
 			zap.Float64("elapsed(ms)", elapsed))
-		d.t.TraceDependency(ctx, "", d.driver, d.name, "Query", true, now, after, map[string]string{
-			"query": query,
-			"args":  fmt.Sprintf("%v", args),
-		})
+		if d.t != nil {
+			d.t.TraceDependency(ctx, "", d.driver, d.name, "Query", true, now, after, map[string]string{
+				"query": query,
+				"args":  fmt.Sprintf("%v", args),
+			})
+		}
 	}
 	return res, err
 }
@@ -405,10 +413,12 @@ func (d *dbImpl) QueryRowContext(ctx context.Context, query string, args ...any)
 		zap.String("query", query),
 		zap.Any("args", args),
 		zap.Float64("elapsed(ms)", elapsed))
-	d.t.TraceDependency(ctx, "", d.driver, d.name, "QueryRow"+query, true, now, after, map[string]string{
-		"query": query,
-		"args":  fmt.Sprintf("%v", args),
-	})
+	if d.t != nil {
+		d.t.TraceDependency(ctx, "", d.driver, d.name, "QueryRow"+query, true, now, after, map[string]string{
+			"query": query,
+			"args":  fmt.Sprintf("%v", args),
+		})
+	}
 	return r
 }
 
