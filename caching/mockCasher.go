@@ -1,4 +1,4 @@
-package stdlib
+package caching
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 
 type failedMockCache struct{}
 
-func CreateFailedMockCacher() Cache {
+func createFailedMockCacher() Cache {
 	return &failedMockCache{}
 }
 
@@ -82,7 +82,7 @@ func (m *mockCache) WithName(name string) Cache {
 
 type mockCache struct{}
 
-func CreateSuccessMockCacher() Cache {
+func createSuccessMockCacher() Cache {
 	return &mockCache{}
 }
 

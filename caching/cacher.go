@@ -1,4 +1,4 @@
-package stdlib
+package caching
 
 import (
 	"context"
