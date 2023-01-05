@@ -1,4 +1,4 @@
-package sqldb
+package stdlib
 
 import (
 	"context"
@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type Tx struct {
+type TracedNativeTx struct {
 	*sql.Tx
 	t      *tracer.AppInsightsCore
 	logger *zap.Logger
@@ -28,7 +28,7 @@ type Tx struct {
 // returns:
 //   - *sql.Rows: rows returned by query
 //   - error: error if any
-func (t *Tx) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
+func (t *TracedNativeTx) QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
 	now := time.Now()
 	res, err := t.Tx.QueryContext(ctx, query, args...)
 	after := time.Now()
@@ -38,29 +38,25 @@ func (t *Tx) QueryContext(ctx context.Context, query string, args ...interface{}
 			zap.String("query", query),
 			zap.Any("args", args),
 			zap.Error(err))
-		if t.t != nil {
-			t.t.TraceException(ctx, err, 0, map[string]string{
-				"query": query,
-				"args":  fmt.Sprintf("%v", args),
-				"error": err.Error(),
-			})
-			t.t.TraceDependency(ctx, "", t.driver, t.name, "Query", false, now, after, map[string]string{
-				"query": query,
-				"args":  fmt.Sprintf("%v", args),
-				"error": err.Error(),
-			})
-		}
+		t.t.TraceException(ctx, err, 0, map[string]string{
+			"query": query,
+			"args":  fmt.Sprintf("%v", args),
+			"error": err.Error(),
+		})
+		t.t.TraceDependency(ctx, "", t.driver, t.name, "Query", false, now, after, map[string]string{
+			"query": query,
+			"args":  fmt.Sprintf("%v", args),
+			"error": err.Error(),
+		})
 	} else {
 		t.logger.Info("[DATABASE]  Executing query",
 			zap.String("query", query),
 			zap.Any("args", args),
 			zap.Float64("elapsed(ms)", elapsed))
-		if t.t != nil {
-			t.t.TraceDependency(ctx, "", t.driver, t.name, "Query", true, now, after, map[string]string{
-				"query": query,
-				"args":  fmt.Sprintf("%v", args),
-			})
-		}
+		t.t.TraceDependency(ctx, "", t.driver, t.name, "Query", true, now, after, map[string]string{
+			"query": query,
+			"args":  fmt.Sprintf("%v", args),
+		})
 	}
 	return res, err
 }
@@ -74,7 +70,7 @@ func (t *Tx) QueryContext(ctx context.Context, query string, args ...interface{}
 // returns:
 //   - sql.Result: result of query
 //   - error: error if any
-func (t *Tx) Query(query string, args ...interface{}) (*sql.Rows, error) {
+func (t *TracedNativeTx) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	now := time.Now()
 	res, err := t.Tx.Query(query, args...)
 	elapsed := float64(time.Since(now).Microseconds()) / 1000.0
@@ -101,7 +97,7 @@ func (t *Tx) Query(query string, args ...interface{}) (*sql.Rows, error) {
 // returns:
 //   - sql.Result: result of query
 //   - error: error if any
-func (t *Tx) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
+func (t *TracedNativeTx) ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
 	now := time.Now()
 	res, err := t.Tx.ExecContext(ctx, query, args...)
 	after := time.Now()
@@ -111,29 +107,25 @@ func (t *Tx) ExecContext(ctx context.Context, query string, args ...interface{})
 			zap.String("query", query),
 			zap.Any("args", args),
 			zap.Error(err))
-		if t.t != nil {
-			t.t.TraceException(ctx, err, 0, map[string]string{
-				"query": query,
-				"args":  fmt.Sprintf("%v", args),
-				"error": err.Error(),
-			})
-			t.t.TraceDependency(ctx, "", t.driver, t.name, "Exec", false, now, after, map[string]string{
-				"query": query,
-				"args":  fmt.Sprintf("%v", args),
-				"error": err.Error(),
-			})
-		}
+		t.t.TraceException(ctx, err, 0, map[string]string{
+			"query": query,
+			"args":  fmt.Sprintf("%v", args),
+			"error": err.Error(),
+		})
+		t.t.TraceDependency(ctx, "", t.driver, t.name, "Exec", false, now, after, map[string]string{
+			"query": query,
+			"args":  fmt.Sprintf("%v", args),
+			"error": err.Error(),
+		})
 	} else {
 		t.logger.Info("[DATABASE]  Executing query",
 			zap.String("query", query),
 			zap.Any("args", args),
 			zap.Float64("elapsed(ms)", elapsed))
-		if t.t != nil {
-			t.t.TraceDependency(ctx, "", t.driver, t.name, "Exec", true, now, after, map[string]string{
-				"query": query,
-				"args":  fmt.Sprintf("%v", args),
-			})
-		}
+		t.t.TraceDependency(ctx, "", t.driver, t.name, "Exec", true, now, after, map[string]string{
+			"query": query,
+			"args":  fmt.Sprintf("%v", args),
+		})
 	}
 	return res, err
 }
@@ -147,7 +139,7 @@ func (t *Tx) ExecContext(ctx context.Context, query string, args ...interface{})
 // returns:
 //   - sql.Result: result of query
 //   - error: error if any
-func (t *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
+func (t *TracedNativeTx) Exec(query string, args ...interface{}) (sql.Result, error) {
 	now := time.Now()
 	res, err := t.Tx.Exec(query, args...)
 	elapsed := float64(time.Since(now).Microseconds()) / 1000.0
@@ -171,7 +163,7 @@ func (t *Tx) Exec(query string, args ...interface{}) (sql.Result, error) {
 //
 // returns:
 //   - error: error if any
-func (t *Tx) Commit() error {
+func (t *TracedNativeTx) Commit() error {
 	now := time.Now()
 	err := t.Tx.Commit()
 	elapsed := float64(time.Since(now).Microseconds()) / 1000.0
@@ -191,7 +183,7 @@ func (t *Tx) Commit() error {
 //
 // returns:
 //   - error: error if any
-func (t *Tx) Rollback() error {
+func (t *TracedNativeTx) Rollback() error {
 	now := time.Now()
 	err := t.Tx.Rollback()
 	elapsed := float64(time.Since(now).Microseconds()) / 1000.0
@@ -213,7 +205,7 @@ func (t *Tx) Rollback() error {
 //
 // returns:
 //   - *sql.Row: row returned by query
-func (t *Tx) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
+func (t *TracedNativeTx) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
 	now := time.Now()
 	res := t.Tx.QueryRowContext(ctx, query, args...)
 	after := time.Now()
@@ -222,12 +214,10 @@ func (t *Tx) QueryRowContext(ctx context.Context, query string, args ...interfac
 		zap.String("query", query),
 		zap.Any("args", args),
 		zap.Float64("elapsed(ms)", elapsed))
-	if t.t != nil {
-		t.t.TraceDependency(ctx, "", t.driver, t.name, "QueryRow", true, now, after, map[string]string{
-			"query": query,
-			"args":  fmt.Sprintf("%v", args),
-		})
-	}
+	t.t.TraceDependency(ctx, "", t.driver, t.name, "QueryRow", true, now, after, map[string]string{
+		"query": query,
+		"args":  fmt.Sprintf("%v", args),
+	})
 	return res
 }
 
@@ -239,7 +229,7 @@ func (t *Tx) QueryRowContext(ctx context.Context, query string, args ...interfac
 //
 // returns:
 //   - *sql.Row: row returned by query
-func (t *Tx) QueryRow(query string, args ...interface{}) *sql.Row {
+func (t *TracedNativeTx) QueryRow(query string, args ...interface{}) *sql.Row {
 	now := time.Now()
 	res := t.Tx.QueryRow(query, args...)
 	elapsed := float64(time.Since(now).Microseconds()) / 1000.0
