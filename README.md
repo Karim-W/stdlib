@@ -1,5 +1,6 @@
 # Stdlib
 ![stdlib](docs/stdlib.png)<br/>
+[![codecov](https://codecov.io/gh/Karim-W/stdlib/branch/main/graph/badge.svg?token=RPBAD4H6Y9)](https://codecov.io/gh/Karim-W/stdlib)
 
 This is a collection of standard library modules for go i use in my projects. The package offers a set of modules that are useful in most projects such as logging,tracing,pooling,caching,HTTP Request,etc.
 ## Modules
@@ -338,6 +339,15 @@ Clear the pool
 ```go
 pool.Clear()
 ```
+
+### Tests
+#### Coverage
+#### Grid
+![img](https://codecov.io/gh/Karim-W/stdlib/branch/main/graphs/tree.svg?token=RPBAD4H6Y9)
+#### Sunburst
+![img](https://codecov.io/gh/Karim-W/stdlib/branch/main/graphs/sunburst.svg?token=RPBAD4H6Y9)
+#### Icicle
+![img](https://codecov.io/gh/Karim-W/stdlib/branch/main/graphs/icicle.svg?token=RPBAD4H6Y9)
 
 
 
