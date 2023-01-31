@@ -136,11 +136,19 @@ func TestAfterHook(t *testing.T) {
 	assert.Nil(t, err)
 }
 
+func TestGetResponseBody(t *testing.T) {
+	res := Req("https://httpbin.org/get").Get()
+	assert.Equal(t, true, res.IsSuccess())
+	assert.Equal(t, 200, res.GetStatusCode())
+	byts := res.GetBody()
+	assert.NotNil(t, byts)
+}
+
 func TestCatchErrorObject(t *testing.T) {
 	bt := []byte(`{"message": "error"}`)
 	res := &_HttpRequest{
 		statusCode: 400,
-		resBody:    &bt,
+		resBody:    bt,
 	}
 	resp := map[string]interface{}{}
 	err := res.Catch(&resp)

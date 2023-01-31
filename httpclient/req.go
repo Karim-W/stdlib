@@ -63,7 +63,7 @@ type _HttpRequest struct {
 	ctx         context.Context
 	withLock    bool
 	response    *http.Response
-	resBody     *[]byte
+	resBody     []byte
 	traces      *clientTrace
 	method      string
 	client      *http.Client
