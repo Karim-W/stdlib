@@ -30,7 +30,7 @@ func (r *_HttpRequest) SetResult(responseBody any) error {
 	if r.err != nil {
 		return r.err
 	}
-	return json.Unmarshal(*r.resBody, responseBody)
+	return json.Unmarshal(r.resBody, responseBody)
 }
 
 func (r *_HttpRequest) CatchError() error {
@@ -43,7 +43,7 @@ func (r *_HttpRequest) CatchError() error {
 	return nil
 }
 
-func (r *_HttpRequest) Catch(errorObject any) error { return json.Unmarshal(*r.resBody, errorObject) }
+func (r *_HttpRequest) Catch(errorObject any) error { return json.Unmarshal(r.resBody, errorObject) }
 
 func (r *_HttpRequest) IsSuccess() bool {
 	return r.statusCode >= 200 && r.statusCode < 300 && r.err == nil
@@ -96,7 +96,7 @@ func (r *_HttpRequest) doRequest() HTTPResponse {
 	if r.err != nil {
 		return r
 	}
-	r.resBody = &byts
+	r.resBody = byts
 	return r
 }
 
@@ -158,7 +158,7 @@ func (r *_HttpRequest) GetMethod() string { return r.method }
 
 func (r *_HttpRequest) GetHeaders() http.Header { return r.headers }
 
-func (r *_HttpRequest) GetBody() []byte { return *r.body }
+func (r *_HttpRequest) GetBody() []byte { return r.resBody }
 
 func (r *_HttpRequest) GetCookies() []*http.Cookie { return r.Cookies }
 
