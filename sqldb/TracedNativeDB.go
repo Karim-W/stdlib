@@ -103,6 +103,22 @@ func TracedNativeDBWrapper(
 	}
 }
 
+// DBWarpper() returns the underlying DB wrapping the driver
+func DBWarpper(
+	db *sql.DB,
+	t *tracer.AppInsightsCore,
+	name string,
+	logger *zap.Logger,
+) DB {
+	return &dbImpl{
+		logger:   logger,
+		db:       db,
+		pingLock: sync.Mutex{},
+		t:        t,
+		name:     name,
+	}
+}
+
 // WithLogger returns a Copy of the DB with the given logger
 // shallow copy
 func (d *dbImpl) WithLogger(l *zap.Logger) DB {
