@@ -220,6 +220,23 @@ func TestFailedQueryMistmatch(t *testing.T) {
 	assert.Nil(t, rows)
 }
 
+func TestQueryContextWithWrapper(t *testing.T) {
+	d, mock, err := sqlmock.New()
+	assert.Nil(t, err)
+	defer d.Close()
+	assert.NotNil(t, mock)
+	mock.ExpectQuery("SELECT bar FROM foo").WithArgs().WillReturnRows(sqlmock.NewRows([]string{"bar"}).AddRow("baz"))
+	logger := zap.NewExample()
+	db := DBWarpper(
+		d,
+		nil,
+		"",
+		logger,
+	)
+	rows, err := db.QueryContext(context.TODO(), "SELECT bar FROM foo")
+	assert.Nil(t, err)
+	assert.NotNil(t, rows)
+}
 func TestQueryContext(t *testing.T) {
 	d, mock, err := sqlmock.New()
 	assert.Nil(t, err)
