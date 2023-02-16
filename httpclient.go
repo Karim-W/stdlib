@@ -16,7 +16,7 @@ type Client interface {
 	Post(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
 	Patch(ctx context.Context, Url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
 	Invoke(ctx context.Context, method string, url string, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
-	doRequest(ctx context.Context, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
+	// doRequest(ctx context.Context, opt *ClientOptions, body interface{}, dest interface{}) (int, error)
 	SetAuthHandler(provider AuthProvider)
 	WithLogger(l *zap.Logger) Client
 	WithTracer(t *appinsightstrace.AppInsightsCore) Client
