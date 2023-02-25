@@ -45,8 +45,8 @@ func TestAddToStringSet(t *testing.T) {
 	assert.False(t, ok)
 	slice := stringSet.ToSlice()
 	assert.Equal(t, 2, len(slice))
-	assert.Equal(t, "a", slice[0])
-	assert.Equal(t, "b", slice[1])
+	assert.Contains(t, slice, "a")
+	assert.Contains(t, slice, "b")
 }
 
 func TestSliceConversion(t *testing.T) {
