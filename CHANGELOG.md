@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [unreleased]
+## [0.4.1] - 2023-04-07
 
 ### Docs
 
@@ -11,6 +11,10 @@ All notable changes to this project will be documented in this file.
 ### Features
 
 - Added setMaxConn functions and Options for db
+
+### Testing
+
+- Updated goset tests
 
 ### Breaking
 
