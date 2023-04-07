@@ -4,9 +4,17 @@ All notable changes to this project will be documented in this file.
 
 ## [unreleased]
 
+### Docs
+
+- Added CHANGELOG.md and changelog generator
+
 ### Features
 
 - Added setMaxConn functions and Options for db
+
+### Breaking
+
+- Removed old impl of traced database
 
 ## [0.2.0-alpha] - 2022-10-27
 
