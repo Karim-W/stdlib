@@ -31,6 +31,13 @@ type DB interface {
 	SetConnMaxLifetime(d time.Duration)
 	Stats() sql.DBStats
 	WithLogger(l *zap.Logger) DB
+	SetMaxIdleConns(n int)
+	SetMaxOpenConns(n int)
+}
+
+type Options struct {
+	MaxIdleConns int
+	MaxOpenConns int
 }
 
 type dbImpl struct {
@@ -54,7 +61,7 @@ func DBProvider(Driver string, DSN string) DB {
 		if db, err := sql.Open("postgres", DSN); err != nil {
 			panic(err)
 		} else {
-			l.Info("[DATABASE]\tSucessfuly Connected to postgres database")
+			l.Info("Sucessfuly Connected to postgres database")
 			ndb := &dbImpl{
 				logger:   l,
 				db:       db,
@@ -101,6 +108,51 @@ func TracedNativeDBWrapper(
 	default:
 		panic("Unsupported driver")
 	}
+}
+
+// TracedNativeDBWrapperWithOptions returns a DB interface for the given driver and DSN
+// WARNING: It will panic if the driver is not supported
+func TracedNativeDBWrapperWithOptions(
+	Driver string,
+	DSN string,
+	t *tracer.AppInsightsCore,
+	name string,
+	opts *Options,
+) DB {
+	l, err := zap.NewProduction()
+	if err != nil {
+		panic(err)
+	}
+	var ndb *dbImpl
+	switch Driver {
+	case "postgres":
+		if db, err := sql.Open("postgres", DSN); err != nil {
+			panic(err)
+		} else {
+			l.Info("[DATABASE]\tSucessfuly Connected to postgres database")
+			ndb = &dbImpl{
+				logger:   l,
+				db:       db,
+				pingLock: sync.Mutex{},
+				t:        t,
+				driver:   Driver,
+				name:     name,
+			}
+			ndb.Ping()
+		}
+	default:
+		panic("Unsupported driver")
+	}
+	if ndb == nil {
+		panic("db is nil")
+	}
+	if opts != nil {
+		if opts.MaxIdleConns == 0 {
+			ndb.SetMaxIdleConns(2)
+		}
+		ndb.SetMaxOpenConns(opts.MaxOpenConns)
+	}
+	return ndb
 }
 
 // DBWarpper() returns the underlying DB wrapping the driver
@@ -239,11 +291,21 @@ func (d *dbImpl) ExecContext(ctx context.Context, query string, args ...any) (sq
 				"args":  fmt.Sprintf("%v", args),
 				"error": err.Error(),
 			})
-			d.t.TraceDependency(ctx, "", d.driver, d.name, "EXEC", false, now, after, map[string]string{
-				"query": query,
-				"args":  fmt.Sprintf("%v", args),
-				"error": err.Error(),
-			})
+			d.t.TraceDependency(
+				ctx,
+				"",
+				d.driver,
+				d.name,
+				"EXEC",
+				false,
+				now,
+				after,
+				map[string]string{
+					"query": query,
+					"args":  fmt.Sprintf("%v", args),
+					"error": err.Error(),
+				},
+			)
 		}
 	} else {
 		d.logger.Info("[DATABASE]  Executing query",
@@ -369,11 +431,21 @@ func (d *dbImpl) QueryContext(ctx context.Context, query string, args ...any) (*
 				"args":  fmt.Sprintf("%v", args),
 				"error": err.Error(),
 			})
-			d.t.TraceDependency(ctx, "", d.driver, d.name, "Query", false, now, after, map[string]string{
-				"query": query,
-				"args":  fmt.Sprintf("%v", args),
-				"error": err.Error(),
-			})
+			d.t.TraceDependency(
+				ctx,
+				"",
+				d.driver,
+				d.name,
+				"Query",
+				false,
+				now,
+				after,
+				map[string]string{
+					"query": query,
+					"args":  fmt.Sprintf("%v", args),
+					"error": err.Error(),
+				},
+			)
 		}
 	} else {
 		d.logger.Info("[DATABASE]  Executing query",
@@ -430,10 +502,20 @@ func (d *dbImpl) QueryRowContext(ctx context.Context, query string, args ...any)
 		zap.Any("args", args),
 		zap.Float64("elapsed(ms)", elapsed))
 	if d.t != nil {
-		d.t.TraceDependency(ctx, "", d.driver, d.name, "QueryRow"+query, true, now, after, map[string]string{
-			"query": query,
-			"args":  fmt.Sprintf("%v", args),
-		})
+		d.t.TraceDependency(
+			ctx,
+			"",
+			d.driver,
+			d.name,
+			"QueryRow"+query,
+			true,
+			now,
+			after,
+			map[string]string{
+				"query": query,
+				"args":  fmt.Sprintf("%v", args),
+			},
+		)
 	}
 	return r
 }
@@ -464,4 +546,21 @@ func (i *dbImpl) SetConnMaxLifetime(d time.Duration) {
 //   - sql.DBStats: the database statistics
 func (i *dbImpl) Stats() sql.DBStats {
 	return i.db.Stats()
+}
+
+// SetMaxIdleConns sets the maximum number of connections in the idle connection pool.
+// If n <= 0, no idle connections are retained.
+// params:
+//   - n: the number of connections to set
+func (i *dbImpl) SetMaxIdleConns(n int) {
+	i.db.SetMaxIdleConns(n)
+}
+
+// SetMaxOpenConns sets the maximum number of open connections to the database.
+// If n <= 0, then there is no limit on the number of open connections.
+// The default is 0 (unlimited).
+// params:
+//   - n: the number of connections to set
+func (i *dbImpl) SetMaxOpenConns(n int) {
+	i.db.SetMaxOpenConns(n)
 }
