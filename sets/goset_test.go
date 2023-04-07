@@ -16,8 +16,8 @@ func TestAddToIntSet(t *testing.T) {
 	assert.False(t, ok)
 	slice := intSet.ToSlice()
 	assert.Equal(t, 2, len(slice))
-	assert.Equal(t, 1, slice[0])
-	assert.Equal(t, 2, slice[1])
+	assert.Contains(t, slice, 1)
+	assert.Contains(t, slice, 2)
 }
 
 func TestRemoveFromIntSet(t *testing.T) {
@@ -32,7 +32,7 @@ func TestRemoveFromIntSet(t *testing.T) {
 	assert.False(t, ok)
 	slice := intSet.ToSlice()
 	assert.Equal(t, 1, len(slice))
-	assert.Equal(t, 2, slice[0])
+	assert.Contains(t, slice, 2)
 }
 
 func TestAddToStringSet(t *testing.T) {
