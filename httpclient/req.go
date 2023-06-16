@@ -26,7 +26,7 @@ type HTTPRequest interface {
 	WithCookie(cookie *http.Cookie) HTTPRequest
 	WithRetries(retries int) HTTPRequest
 	WithContext(ctx context.Context) HTTPRequest
-	AddBeforeHook(handler func(req *http.Request) error) HTTPRequest
+	// AddBeforeHook(handler func(req *http.Request) error) HTTPRequest
 	AddAfterHook(handler func(
 		req *http.Request,
 		resp *http.Response,
@@ -170,10 +170,10 @@ func (r *_HttpRequest) WithContext(ctx context.Context) HTTPRequest {
 	return r
 }
 
-func (r *_HttpRequest) AddBeforeHook(handler func(req *http.Request) error) HTTPRequest {
-	r.httpHooks.Before = append(r.httpHooks.Before, handler)
-	return r
-}
+// func (r *_HttpRequest) AddBeforeHook(handler func(req *http.Request) error) HTTPRequest {
+// 	r.httpHooks.Before = append(r.httpHooks.Before, handler)
+// 	return r
+// }
 
 func (r *_HttpRequest) AddAfterHook(handler func(
 	req *http.Request,
@@ -252,8 +252,8 @@ func Req(url string) HTTPRequest {
 		traces:      &clientTrace{},
 		client:      &http.Client{},
 		httpHooks: &HTTPHook{
-			Before: []func(*http.Request) error{},
-			After:  []func(*http.Request, *http.Response, HTTPMetadata, error){},
+			Before: make([]func(*http.Request) error, 0, 2),
+			After:  make([]func(*http.Request, *http.Response, HTTPMetadata, error), 0, 2),
 		},
 	}
 }
@@ -266,8 +266,8 @@ func ReqCtx(ctx context.Context, url string) HTTPRequest {
 		client:      &http.Client{},
 		ctx:         ctx,
 		httpHooks: &HTTPHook{
-			Before: []func(*http.Request) error{},
-			After:  []func(*http.Request, *http.Response, HTTPMetadata, error){},
+			Before: make([]func(*http.Request) error, 0, 2),
+			After:  make([]func(*http.Request, *http.Response, HTTPMetadata, error), 0, 2),
 		},
 	}
 }

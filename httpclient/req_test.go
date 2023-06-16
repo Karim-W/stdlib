@@ -121,8 +121,9 @@ func TestTransactions(t *testing.T) {
 }
 
 func TestAfterHook(t *testing.T) {
-	hook := func(req *http.Request, res *http.Response, err error) {
+	hook := func(req *http.Request, res *http.Response, meta HTTPMetadata, err error) {
 		fmt.Println("hook called")
+		fmt.Println("elapsed(ms): ", meta.EndTime.Sub(meta.StartTime).Milliseconds())
 		assert.Nil(t, err)
 	}
 	resp := interface{}(nil)
@@ -135,6 +136,32 @@ func TestAfterHook(t *testing.T) {
 	err = res.CatchError()
 	assert.Nil(t, err)
 }
+
+// func TestErroneousHttpBeforeHook(t *testing.T) {
+// 	hook := func(req *http.Request) error {
+// 		return errors.New("error")
+// 	}
+// 	req := &_HttpRequest{
+// 		readOnlyUrl: "https://httpbin.org/get",
+// 		headers:     make(http.Header),
+// 		traces:      &clientTrace{},
+// 		client:      &http.Client{},
+// 		ctx:         context.TODO(),
+// 		httpHooks: &HTTPHook{
+// 			Before: []func(*http.Request) error{hook},
+// 			After:  make([]func(*http.Request, *http.Response, HTTPMetadata, error), 0, 2),
+// 		},
+// 	}
+// 	assert.Equal(t, 1, len(req.httpHooks.Before))
+// 	// req := Req("https://httpbin.org/get").AddBeforeHook(hook)
+// 	// assert.Equal(t, false, req.
+// 	res := req.Get()
+// 	assert.Equal(t, false, res.IsSuccess())
+// 	assert.Equal(t, -1, res.GetStatusCode())
+// 	err := res.CatchError()
+// 	assert.NotNil(t, err)
+// 	assert.Equal(t, "error", err.Error())
+// }
 
 func TestGetResponseBody(t *testing.T) {
 	res := Req("https://httpbin.org/get").Get()
