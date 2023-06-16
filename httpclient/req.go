@@ -26,10 +26,11 @@ type HTTPRequest interface {
 	WithCookie(cookie *http.Cookie) HTTPRequest
 	WithRetries(retries int) HTTPRequest
 	WithContext(ctx context.Context) HTTPRequest
-	AddBeforeHook(handler func(req *http.Request)) HTTPRequest
+	AddBeforeHook(handler func(req *http.Request) error) HTTPRequest
 	AddAfterHook(handler func(
 		req *http.Request,
 		resp *http.Response,
+		meta HTTPMetadata,
 		err error)) HTTPRequest
 	Begin() HTTPRequest
 	Get() HTTPResponse
@@ -56,7 +57,7 @@ type _HttpRequest struct {
 	baseUrl     string
 	headers     http.Header
 	querried    bool
-	body        *[]byte
+	body        []byte
 	err         error
 	DevMode     bool
 	Cookies     []*http.Cookie
@@ -118,7 +119,7 @@ func (r *_HttpRequest) AddBody(body interface{}) HTTPRequest {
 		r.err = err
 		return r
 	}
-	r.body = &byts
+	copy(r.body, byts)
 	return r
 }
 
@@ -169,7 +170,7 @@ func (r *_HttpRequest) WithContext(ctx context.Context) HTTPRequest {
 	return r
 }
 
-func (r *_HttpRequest) AddBeforeHook(handler func(req *http.Request)) HTTPRequest {
+func (r *_HttpRequest) AddBeforeHook(handler func(req *http.Request) error) HTTPRequest {
 	r.httpHooks.Before = append(r.httpHooks.Before, handler)
 	return r
 }
@@ -177,7 +178,9 @@ func (r *_HttpRequest) AddBeforeHook(handler func(req *http.Request)) HTTPReques
 func (r *_HttpRequest) AddAfterHook(handler func(
 	req *http.Request,
 	resp *http.Response,
-	err error)) HTTPRequest {
+	meta HTTPMetadata,
+	err error),
+) HTTPRequest {
 	r.httpHooks.After = append(r.httpHooks.After, handler)
 	return r
 }
@@ -192,18 +195,22 @@ func (r *_HttpRequest) Get() HTTPResponse {
 	r.method = "GET"
 	return r.doRequest()
 }
+
 func (r *_HttpRequest) Put() HTTPResponse {
 	r.method = "PUT"
 	return r.doRequest()
 }
+
 func (r *_HttpRequest) Post() HTTPResponse {
 	r.method = "POST"
 	return r.doRequest()
 }
+
 func (r *_HttpRequest) Patch() HTTPResponse {
 	r.method = "PATCH"
 	return r.doRequest()
 }
+
 func (r *_HttpRequest) Del() HTTPResponse {
 	r.method = "DELETE"
 	return r.doRequest()
@@ -245,11 +252,12 @@ func Req(url string) HTTPRequest {
 		traces:      &clientTrace{},
 		client:      &http.Client{},
 		httpHooks: &HTTPHook{
-			Before: []func(*http.Request){},
-			After:  []func(req *http.Request, resp *http.Response, err error){},
+			Before: []func(*http.Request) error{},
+			After:  []func(*http.Request, *http.Response, HTTPMetadata, error){},
 		},
 	}
 }
+
 func ReqCtx(ctx context.Context, url string) HTTPRequest {
 	return &_HttpRequest{
 		readOnlyUrl: url,
@@ -257,5 +265,9 @@ func ReqCtx(ctx context.Context, url string) HTTPRequest {
 		traces:      &clientTrace{},
 		client:      &http.Client{},
 		ctx:         ctx,
+		httpHooks: &HTTPHook{
+			Before: []func(*http.Request) error{},
+			After:  []func(*http.Request, *http.Response, HTTPMetadata, error){},
+		},
 	}
 }
