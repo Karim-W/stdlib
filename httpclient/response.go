@@ -76,19 +76,14 @@ func (r *_HttpRequest) doRequest() HTTPResponse {
 	if r.err != nil {
 		return r
 	}
-	if len(r.httpHooks.Before) > 0 {
-		fmt.Println("before", len(r.httpHooks.Before))
-		for i := range r.httpHooks.Before {
-			fmt.Println("before", i)
-			// er := r.httpHooks.Before[i](req)
-			// if er != nil {
-			// 	r.response.StatusCode = -1
-			// 	r.err = er
-			// 	r.body = []byte(er.Error())
-			// 	return r
-			// }
-		}
-	}
+	// for i := range r.httpHooks.Before {
+	// 	// er := r.httpHooks.Before[i](req)
+	// 	// if er != nil {
+	// 	// 	r.response.StatusCode = -1
+	// 	// 	r.err = er
+	// 	// 	r.body = []byte(er.Error())
+	// 	// 	return r
+	// }
 	req = req.WithContext(r.traces.CreateContext(r.ctx))
 	req.Header = r.headers
 	for _, cookie := range r.Cookies {

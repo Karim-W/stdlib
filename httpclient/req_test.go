@@ -191,3 +191,10 @@ func TestMatchErrorTestMatchError(t *testing.T) {
 	assert.NotNil(t, err)
 	assert.Equal(t, "request failed with status code 400", err.Error())
 }
+
+// func TestRetires(t *testing.T) {
+// 	res := Req("https://httpbin.org/get").WithRetries(
+// 		CONSTANT_BACKOFF, 3, time.Second).Get()
+// 	assert.Equal(t, true, res.IsSuccess())
+// 	assert.Equal(t, 200, res.GetStatusCode())
+// }

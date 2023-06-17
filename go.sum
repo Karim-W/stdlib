@@ -5,6 +5,8 @@ github.com/BetaLixT/appInsightsTrace v0.2.3 h1:INSWS5ft3iERAknvYH7O0l2Yeq9qwDPpt
 github.com/BetaLixT/appInsightsTrace v0.2.3/go.mod h1:s+x2ba3zFZVRmMhFi6DjLhDYT4pxqK4dKppk1KvM4/Y=
 github.com/DATA-DOG/go-sqlmock v1.5.0 h1:Shsta01QNfFxHCfpW6YH2STWB0MudeXXEWMr20OEh60=
 github.com/DATA-DOG/go-sqlmock v1.5.0/go.mod h1:f/Ixk793poVmq4qj/V1dPUg2JEAKC73Q5eFN3EC/SaM=
+github.com/Soreing/retrier v1.1.0 h1:6HL+jEmFIL5AEP9+XbaskFBVX99dc8NZ/CFVakGw6Lk=
+github.com/Soreing/retrier v1.1.0/go.mod h1:UhFOJnODGy6y/e5tBasoyge1+gsU4qFTnrduB7Q5F+Q=
 github.com/benbjohnson/clock v1.1.0 h1:Q92kusRqC1XV2MjkWETPvjJVqKetz1OzxZB7mHJLju8=
 github.com/creack/pty v1.1.9/go.mod h1:oKZEueFk5CKHvIhNR5MUki03XCEU+Q6VDXinZuGJ33E=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
