@@ -129,7 +129,7 @@ func (r *_HttpRequest) AddBody(body interface{}) HTTPRequest {
 		r.err = err
 		return r
 	}
-	copy(r.body, byts)
+	r.body = byts
 	return r
 }
 
