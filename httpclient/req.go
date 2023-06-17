@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Soreing/retrier"
 	"github.com/karim-w/stdlib"
 )
 
@@ -24,12 +25,17 @@ type HTTPRequest interface {
 	Dev() HTTPRequest
 	DevFromEnv() HTTPRequest
 	WithCookie(cookie *http.Cookie) HTTPRequest
-	WithRetries(retries int) HTTPRequest
+	WithRetries(
+		policy RetryPolicy,
+		retries int,
+		amount time.Duration,
+	) HTTPRequest
 	WithContext(ctx context.Context) HTTPRequest
-	AddBeforeHook(handler func(req *http.Request)) HTTPRequest
+	// AddBeforeHook(handler func(req *http.Request) error) HTTPRequest
 	AddAfterHook(handler func(
 		req *http.Request,
 		resp *http.Response,
+		meta HTTPMetadata,
 		err error)) HTTPRequest
 	Begin() HTTPRequest
 	Get() HTTPResponse
@@ -56,7 +62,7 @@ type _HttpRequest struct {
 	baseUrl     string
 	headers     http.Header
 	querried    bool
-	body        *[]byte
+	body        []byte
 	err         error
 	DevMode     bool
 	Cookies     []*http.Cookie
@@ -67,6 +73,11 @@ type _HttpRequest struct {
 	traces      *clientTrace
 	method      string
 	client      *http.Client
+	retries     struct {
+		retryPolicy RetryPolicy
+		retryCount  int
+		initialWait time.Duration
+	}
 }
 
 type RetryOptions struct {
@@ -118,7 +129,7 @@ func (r *_HttpRequest) AddBody(body interface{}) HTTPRequest {
 		r.err = err
 		return r
 	}
-	r.body = &byts
+	copy(r.body, byts)
 	return r
 }
 
@@ -160,7 +171,14 @@ func (r *_HttpRequest) WithCookie(cookie *http.Cookie) HTTPRequest {
 	return r
 }
 
-func (r *_HttpRequest) WithRetries(retries int) HTTPRequest {
+func (r *_HttpRequest) WithRetries(
+	policy RetryPolicy,
+	retries int,
+	amount time.Duration,
+) HTTPRequest {
+	r.retries.retryPolicy = policy
+	r.retries.retryCount = retries
+	r.retries.initialWait = amount
 	return r
 }
 
@@ -169,15 +187,17 @@ func (r *_HttpRequest) WithContext(ctx context.Context) HTTPRequest {
 	return r
 }
 
-func (r *_HttpRequest) AddBeforeHook(handler func(req *http.Request)) HTTPRequest {
-	r.httpHooks.Before = append(r.httpHooks.Before, handler)
-	return r
-}
+// func (r *_HttpRequest) AddBeforeHook(handler func(req *http.Request) error) HTTPRequest {
+// 	r.httpHooks.Before = append(r.httpHooks.Before, handler)
+// 	return r
+// }
 
 func (r *_HttpRequest) AddAfterHook(handler func(
 	req *http.Request,
 	resp *http.Response,
-	err error)) HTTPRequest {
+	meta HTTPMetadata,
+	err error),
+) HTTPRequest {
 	r.httpHooks.After = append(r.httpHooks.After, handler)
 	return r
 }
@@ -188,25 +208,106 @@ func (r *_HttpRequest) Begin() HTTPRequest {
 	return r
 }
 
+func (r *_HttpRequest) getRetrier() *retrier.Retrier {
+	switch r.retries.retryPolicy {
+	case CONSTANT_BACKOFF:
+		return retrier.NewRetrier(
+			r.retries.retryCount,
+			retrier.ConstantDelay(r.retries.initialWait),
+		)
+	case EXPONENTIAL_BACKOFF:
+		return retrier.NewRetrier(
+			r.retries.retryCount,
+			retrier.ExponentialDelay(2, 2),
+		)
+	default:
+		return nil
+	}
+}
+
 func (r *_HttpRequest) Get() HTTPResponse {
 	r.method = "GET"
-	return r.doRequest()
+	retrier := r.getRetrier()
+	if retrier == nil {
+		return r.doRequest()
+	}
+	var resp HTTPResponse
+	retrier.Run(func() error {
+		resp = r.doRequest()
+		if resp.CatchError() != nil {
+			return resp.CatchError()
+		}
+		return nil
+	})
+	return resp
 }
+
 func (r *_HttpRequest) Put() HTTPResponse {
 	r.method = "PUT"
-	return r.doRequest()
+	retrier := r.getRetrier()
+	if retrier == nil {
+		return r.doRequest()
+	}
+	var resp HTTPResponse
+	retrier.Run(func() error {
+		resp = r.doRequest()
+		if resp.CatchError() != nil {
+			return resp.CatchError()
+		}
+		return nil
+	})
+	return resp
 }
+
 func (r *_HttpRequest) Post() HTTPResponse {
 	r.method = "POST"
-	return r.doRequest()
+	retrier := r.getRetrier()
+	if retrier == nil {
+		return r.doRequest()
+	}
+	var resp HTTPResponse
+	retrier.Run(func() error {
+		resp = r.doRequest()
+		if resp.CatchError() != nil {
+			return resp.CatchError()
+		}
+		return nil
+	})
+	return resp
 }
+
 func (r *_HttpRequest) Patch() HTTPResponse {
 	r.method = "PATCH"
-	return r.doRequest()
+	retrier := r.getRetrier()
+	if retrier == nil {
+		return r.doRequest()
+	}
+	var resp HTTPResponse
+	retrier.Run(func() error {
+		resp = r.doRequest()
+		if resp.CatchError() != nil {
+			return resp.CatchError()
+		}
+		return nil
+	})
+	return resp
 }
+
 func (r *_HttpRequest) Del() HTTPResponse {
 	r.method = "DELETE"
-	return r.doRequest()
+	retrier := r.getRetrier()
+	if retrier == nil {
+		return r.doRequest()
+	}
+	var resp HTTPResponse
+	retrier.Run(func() error {
+		resp = r.doRequest()
+		if resp.CatchError() != nil {
+			return resp.CatchError()
+		}
+		return nil
+	})
+	return resp
 }
 
 func (r *_HttpRequest) Invoke(
@@ -245,11 +346,12 @@ func Req(url string) HTTPRequest {
 		traces:      &clientTrace{},
 		client:      &http.Client{},
 		httpHooks: &HTTPHook{
-			Before: []func(*http.Request){},
-			After:  []func(req *http.Request, resp *http.Response, err error){},
+			Before: make([]func(*http.Request) error, 0, 2),
+			After:  make([]func(*http.Request, *http.Response, HTTPMetadata, error), 0, 2),
 		},
 	}
 }
+
 func ReqCtx(ctx context.Context, url string) HTTPRequest {
 	return &_HttpRequest{
 		readOnlyUrl: url,
@@ -257,5 +359,9 @@ func ReqCtx(ctx context.Context, url string) HTTPRequest {
 		traces:      &clientTrace{},
 		client:      &http.Client{},
 		ctx:         ctx,
+		httpHooks: &HTTPHook{
+			Before: make([]func(*http.Request) error, 0, 2),
+			After:  make([]func(*http.Request, *http.Response, HTTPMetadata, error), 0, 2),
+		},
 	}
 }

@@ -43,7 +43,11 @@ func (r *_HttpRequest) CatchError() error {
 	return nil
 }
 
-func (r *_HttpRequest) Catch(errorObject any) error { return json.Unmarshal(r.resBody, errorObject) }
+func (r *_HttpRequest) Catch(
+	errorObject any,
+) error {
+	return json.Unmarshal(r.resBody, errorObject)
+}
 
 func (r *_HttpRequest) IsSuccess() bool {
 	return r.statusCode >= 200 && r.statusCode < 300 && r.err == nil
@@ -65,16 +69,21 @@ func (r *_HttpRequest) doRequest() HTTPResponse {
 	}
 	var req *http.Request
 	if r.body != nil {
-		req, r.err = http.NewRequest(r.method, r.readOnlyUrl, bytes.NewBuffer(*r.body))
+		req, r.err = http.NewRequest(r.method, r.readOnlyUrl, bytes.NewBuffer(r.body))
 	} else {
 		req, r.err = http.NewRequest(r.method, r.readOnlyUrl, nil)
 	}
 	if r.err != nil {
 		return r
 	}
-	for i := range r.httpHooks.Before {
-		r.httpHooks.Before[i](req)
-	}
+	// for i := range r.httpHooks.Before {
+	// 	// er := r.httpHooks.Before[i](req)
+	// 	// if er != nil {
+	// 	// 	r.response.StatusCode = -1
+	// 	// 	r.err = er
+	// 	// 	r.body = []byte(er.Error())
+	// 	// 	return r
+	// }
 	req = req.WithContext(r.traces.CreateContext(r.ctx))
 	req.Header = r.headers
 	for _, cookie := range r.Cookies {
@@ -82,26 +91,30 @@ func (r *_HttpRequest) doRequest() HTTPResponse {
 	}
 	r.startTime = time.Now()
 	r.response, r.err = r.client.Do(req)
+	endTime := time.Now()
 	for i := range r.httpHooks.After {
-		r.httpHooks.After[i](req, r.response, r.err)
+		r.httpHooks.After[i](req, r.response, HTTPMetadata{
+			StartTime: r.startTime,
+			EndTime:   endTime,
+		}, r.err)
 	}
 	if r.err != nil {
 		r.statusCode = -1
 		return r
 	}
 	r.statusCode = r.response.StatusCode
-	defer r.response.Body.Close()
+
 	var byts []byte
 	byts, r.err = ioutil.ReadAll(r.response.Body)
 	if r.err != nil {
 		return r
 	}
 	r.resBody = byts
+	r.response.Body.Close()
 	return r
 }
 
 func (r *_HttpRequest) GetTraceInfo() HttpTraceInfo {
-
 	endTime := r.traces.endTime
 	if endTime.IsZero() {
 		endTime = time.Now()

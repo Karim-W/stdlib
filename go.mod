@@ -12,6 +12,7 @@ require (
 
 require (
 	code.cloudfoundry.org/clock v1.0.0 // indirect
+	github.com/Soreing/retrier v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/gofrs/uuid v4.2.0+incompatible // indirect
 	github.com/kr/pretty v0.3.0 // indirect

@@ -21,12 +21,10 @@ type clientTrace struct {
 	endTime              time.Time
 	gotConnInfo          httptrace.GotConnInfo
 }
-
 type HTTPHook struct {
-	Before []func(req *http.Request)
-	After  []func(req *http.Request, res *http.Response, err error)
+	Before []func(req *http.Request) error
+	After  []func(req *http.Request, res *http.Response, meta HTTPMetadata, err error)
 }
-
 type HttpTraceInfo struct {
 	// DNSLookupTime is a duration that transport took to perform
 	// DNS lookup.
@@ -69,7 +67,7 @@ type HttpTraceInfo struct {
 }
 
 func (t *clientTrace) CreateContext(c context.Context) context.Context {
-	var ctx = c
+	ctx := c
 	if c == nil {
 		ctx = context.TODO()
 	}
