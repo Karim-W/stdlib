@@ -19,6 +19,7 @@ type HTTPRequest interface {
 	AddQuery(key string, value string) HTTPRequest
 	AddQueryArray(key string, value []string) HTTPRequest
 	AddBody(body interface{}) HTTPRequest
+	AddBodyRaw(body []byte) HTTPRequest
 	AddBasicAuth(username string, password string) HTTPRequest
 	AddBearerAuth(token string) HTTPRequest
 	SetNamedPathParams(regexp string, values []string) HTTPRequest
@@ -130,6 +131,11 @@ func (r *_HttpRequest) AddBody(body interface{}) HTTPRequest {
 		return r
 	}
 	r.body = byts
+	return r
+}
+
+func (r *_HttpRequest) AddBodyRaw(body []byte) HTTPRequest {
+	r.body = body
 	return r
 }
 
