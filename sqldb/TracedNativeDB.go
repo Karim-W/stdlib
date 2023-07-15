@@ -8,8 +8,12 @@ import (
 	"time"
 
 	tracer "github.com/BetaLixT/appInsightsTrace"
+	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
+	_ "github.com/libsql/libsql-client-go/libsql"
+	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
+	_ "modernc.org/sqlite"
 )
 
 type DB interface {
@@ -30,58 +34,80 @@ type DB interface {
 	SetConnMaxIdleTime(d time.Duration)
 	SetConnMaxLifetime(d time.Duration)
 	Stats() sql.DBStats
-	WithLogger(l *zap.Logger) DB
 	SetMaxIdleConns(n int)
 	SetMaxOpenConns(n int)
+	WithTrx(t Trx) DB
 }
 
 type Options struct {
-	MaxIdleConns int
-	MaxOpenConns int
+	MaxIdleConns   int
+	MaxOpenConns   int
+	PanicablePings bool
 }
 
 type dbImpl struct {
-	logger   *zap.Logger
 	db       *sql.DB
 	pingLock sync.Mutex
-	t        *tracer.AppInsightsCore
+	t        Trx
 	driver   string
 	name     string
 }
 
-// DBProvider returns a NativeDatabase interface for the given driver and DSN
+// New returns a NativeDatabase interface for the given driver and DSN
 // WARNING: It will panic if the driver is not supported
-func DBProvider(Driver string, DSN string) DB {
-	l, err := zap.NewProduction()
-	if err != nil {
-		panic(err)
-	}
+func New(Driver string, DSN string) DB {
+	return NewWithOptions(Driver, DSN, nil)
+}
+
+// New returns a NativeDatabase interface for the given driver and DSN
+// WARNING: It will panic if the driver is not supported
+func NewWithOptions(Driver string, DSN string, opts *Options) DB {
+	var db *sql.DB
+	var err error
 	switch Driver {
 	case "postgres":
-		if db, err := sql.Open("postgres", DSN); err != nil {
-			panic(err)
-		} else {
-			l.Info("Sucessfuly Connected to postgres database")
-			ndb := &dbImpl{
-				logger:   l,
-				db:       db,
-				pingLock: sync.Mutex{},
-				driver:   Driver,
-			}
-			ndb.Ping()
-			return ndb
-		}
+		db, err = sql.Open("postgres", DSN)
+	case "mysql":
+		db, err = sql.Open("mysql", DSN)
+	case "sqlite3":
+		db, err = sql.Open("sqlite3", DSN)
+	case "libsql":
+		db, err = sql.Open("libsql", DSN)
+	case "sqlserver":
+		panic("be fucking for real, make better choices")
 	default:
 		panic("Unsupported driver")
 	}
+	if err != nil {
+		panic(err)
+	}
+	ndb := &dbImpl{
+		db:     db,
+		driver: Driver,
+	}
+	if opts == nil {
+		return ndb
+	}
+	if opts.PanicablePings {
+		ndb.pingLock = sync.Mutex{}
+		ndb.Ping()
+	}
+	if opts.MaxIdleConns > 0 {
+		ndb.SetMaxIdleConns(opts.MaxIdleConns)
+	}
+	if opts.MaxOpenConns > 0 {
+		ndb.SetMaxOpenConns(opts.MaxOpenConns)
+	}
+	return ndb
 }
 
 // TracedNativeDBWrapper returns a DB interface for the given driver and DSN
 // WARNING: It will panic if the driver is not supported
+// DEPRECATED: Use New Or NewWithOptions instead
 func TracedNativeDBWrapper(
 	Driver string,
 	DSN string,
-	t *tracer.AppInsightsCore,
+	t Trx,
 	name string,
 ) DB {
 	l, err := zap.NewProduction()
@@ -95,14 +121,11 @@ func TracedNativeDBWrapper(
 		} else {
 			l.Info("[DATABASE]\tSucessfuly Connected to postgres database")
 			ndb := &dbImpl{
-				logger:   l,
-				db:       db,
-				pingLock: sync.Mutex{},
-				t:        t,
-				driver:   Driver,
-				name:     name,
+				db:     db,
+				t:      t,
+				driver: Driver,
+				name:   name,
 			}
-			ndb.Ping()
 			return ndb
 		}
 	default:
@@ -119,26 +142,24 @@ func TracedNativeDBWrapperWithOptions(
 	name string,
 	opts *Options,
 ) DB {
-	l, err := zap.NewProduction()
-	if err != nil {
-		panic(err)
-	}
 	var ndb *dbImpl
 	switch Driver {
 	case "postgres":
 		if db, err := sql.Open("postgres", DSN); err != nil {
 			panic(err)
 		} else {
-			l.Info("[DATABASE]\tSucessfuly Connected to postgres database")
 			ndb = &dbImpl{
-				logger:   l,
-				db:       db,
-				pingLock: sync.Mutex{},
-				t:        t,
-				driver:   Driver,
-				name:     name,
+				db:     db,
+				t:      t,
+				driver: Driver,
+				name:   name,
 			}
-			ndb.Ping()
+			if opts != nil {
+				if opts.PanicablePings {
+					ndb.pingLock = sync.Mutex{}
+					ndb.Ping()
+				}
+			}
 		}
 	default:
 		panic("Unsupported driver")
@@ -158,35 +179,15 @@ func TracedNativeDBWrapperWithOptions(
 // DBWarpper() returns the underlying DB wrapping the driver
 func DBWarpper(
 	db *sql.DB,
-	t *tracer.AppInsightsCore,
+	t Trx,
 	name string,
 	logger *zap.Logger,
 ) DB {
 	return &dbImpl{
-		logger:   logger,
-		db:       db,
-		pingLock: sync.Mutex{},
-		t:        t,
-		name:     name,
+		db:   db,
+		t:    t,
+		name: name,
 	}
-}
-
-// WithLogger returns a Copy of the DB with the given logger
-// shallow copy
-func (d *dbImpl) WithLogger(l *zap.Logger) DB {
-	newD := &dbImpl{}
-	newD.logger = l
-	newD.driver = d.driver
-	if d.db != nil {
-		newD.db = d.db
-	}
-	if d.t != nil {
-		newD.t = d.t
-	}
-	if d.name != "" {
-		newD.name = d.name
-	}
-	return newD
 }
 
 // Begin starts and returns a new transaction.
@@ -199,11 +200,9 @@ func (d *dbImpl) WithLogger(l *zap.Logger) DB {
 func (d *dbImpl) Begin() (*Tx, error) {
 	t, err := d.db.Begin()
 	if err != nil {
-		d.logger.Error("[DATABASE]  Error starting transaction",
-			zap.Error(err))
 		return nil, err
 	}
-	return &Tx{t, d.t, d.logger, d.driver, d.name}, nil
+	return &Tx{t, d.t, d.name}, nil
 }
 
 // BeginTx starts and returns a new transaction.
@@ -217,11 +216,9 @@ func (d *dbImpl) Begin() (*Tx, error) {
 func (d *dbImpl) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
 	t, err := d.db.BeginTx(ctx, opts)
 	if err != nil {
-		d.logger.Error("[DATABASE]  Error starting transaction",
-			zap.Error(err))
 		return nil, err
 	}
-	tx := &Tx{t, d.t, d.logger, d.driver, d.name}
+	tx := &Tx{t, d.t, d.name}
 	return tx, nil
 }
 
@@ -248,20 +245,7 @@ func (d *dbImpl) Conn(ctx context.Context) (*sql.Conn, error) {
 //   - sql.Result: the result of the query
 //   - error: any error that occurred
 func (d *dbImpl) Exec(query string, args ...any) (sql.Result, error) {
-	now := time.Now()
 	res, err := d.db.Exec(query, args...)
-	elapsed := float64(time.Since(now).Microseconds()) / 1000.0
-	if err != nil {
-		d.logger.Error("[DATABASE]  Error executing query",
-			zap.String("query", query),
-			zap.Any("args", args),
-			zap.Error(err))
-	} else {
-		d.logger.Info("[DATABASE]  Executing query",
-			zap.String("query", query),
-			zap.Any("args", args),
-			zap.Float64("elapsed(ms)", elapsed))
-	}
 	return res, err
 }
 
@@ -279,46 +263,22 @@ func (d *dbImpl) ExecContext(ctx context.Context, query string, args ...any) (sq
 	now := time.Now()
 	res, err := d.db.ExecContext(ctx, query, args...)
 	after := time.Now()
-	elapsed := float64(after.Sub(now).Microseconds()) / 1000.0
-	if err != nil {
-		d.logger.Error("[DATABASE]  Error executing query",
-			zap.String("query", query),
-			zap.Any("args", args),
-			zap.Error(err))
-		if d.t != nil {
-			d.t.TraceException(ctx, err, 0, map[string]string{
-				"query": query,
-				"args":  fmt.Sprintf("%v", args),
-				"error": err.Error(),
-			})
-			d.t.TraceDependency(
-				ctx,
-				"",
-				d.driver,
-				d.name,
-				"EXEC",
-				false,
-				now,
-				after,
-				map[string]string{
-					"query": query,
-					"args":  fmt.Sprintf("%v", args),
-					"error": err.Error(),
-				},
-			)
-		}
-	} else {
-		d.logger.Info("[DATABASE]  Executing query",
-			zap.String("query", query),
-			zap.Any("args", args),
-			zap.Float64("elapsed(ms)", elapsed))
-		if d.t != nil {
-			d.t.TraceDependency(ctx, "", d.driver, d.name, "EXEC", true, now, after, map[string]string{
-				"query": query,
-				"args":  fmt.Sprintf("%v", args),
-			})
-		}
+	if d.t == nil {
+		return res, err
 	}
+	fields := map[string]string{
+		"query": query,
+	}
+	if err != nil {
+		fields["error"] = err.Error()
+		fields["args"] = fmt.Sprintf("%v", args)
+		d.t.TraceException(ctx, err, 0, fields)
+	}
+	sid, err := generateParentId()
+	if err != nil {
+		sid = "0000"
+	}
+	d.t.TraceDependency(ctx, sid, "sql", d.name, "EXEC "+query, err == nil, now, after, fields)
 	return res, err
 }
 
@@ -331,13 +291,17 @@ func (d *dbImpl) ExecContext(ctx context.Context, query string, args ...any) (sq
 //   - error: any error that occurred
 func (d *dbImpl) Ping() error {
 	d.pingLock.Lock()
+	var err error
 	go func() {
 		for {
 			time.Sleep(time.Second * 5)
-			d.db.Ping()
+			err = d.db.Ping()
+			if err != nil {
+				panic(err)
+			}
 		}
 	}()
-	return d.db.Ping()
+	return nil
 }
 
 // PingContext verifies a connection to the database is still alive,
@@ -388,20 +352,7 @@ func (d *dbImpl) PrepareContext(ctx context.Context, query string) (*sql.Stmt, e
 //   - *sql.Rows: the rows returned by the query
 //   - error: any error that occurred
 func (d *dbImpl) Query(query string, args ...any) (*sql.Rows, error) {
-	now := time.Now()
 	res, err := d.db.Query(query, args...)
-	elapsed := float64(time.Since(now).Microseconds()) / 1000.0
-	if err != nil {
-		d.logger.Error("[DATABASE]  Error executing query",
-			zap.String("query", query),
-			zap.Any("args", args),
-			zap.Error(err))
-	} else {
-		d.logger.Info("[DATABASE]  Executing query",
-			zap.String("query", query),
-			zap.Any("args", args),
-			zap.Float64("elapsed(ms)", elapsed))
-	}
 	return res, err
 }
 
@@ -419,46 +370,22 @@ func (d *dbImpl) QueryContext(ctx context.Context, query string, args ...any) (*
 	now := time.Now()
 	res, err := d.db.QueryContext(ctx, query, args...)
 	after := time.Now()
-	elapsed := float64(after.Sub(now).Microseconds()) / 1000.0
-	if err != nil {
-		d.logger.Error("[DATABASE]  Error executing query",
-			zap.String("query", query),
-			zap.Any("args", args),
-			zap.Error(err))
-		if d.t != nil {
-			d.t.TraceException(ctx, err, 0, map[string]string{
-				"query": query,
-				"args":  fmt.Sprintf("%v", args),
-				"error": err.Error(),
-			})
-			d.t.TraceDependency(
-				ctx,
-				"",
-				d.driver,
-				d.name,
-				"Query",
-				false,
-				now,
-				after,
-				map[string]string{
-					"query": query,
-					"args":  fmt.Sprintf("%v", args),
-					"error": err.Error(),
-				},
-			)
-		}
-	} else {
-		d.logger.Info("[DATABASE]  Executing query",
-			zap.String("query", query),
-			zap.Any("args", args),
-			zap.Float64("elapsed(ms)", elapsed))
-		if d.t != nil {
-			d.t.TraceDependency(ctx, "", d.driver, d.name, "Query", true, now, after, map[string]string{
-				"query": query,
-				"args":  fmt.Sprintf("%v", args),
-			})
-		}
+	if d.t == nil {
+		return res, err
 	}
+	fields := map[string]string{
+		"query": query,
+	}
+	if err != nil {
+		fields["error"] = err.Error()
+		fields["args"] = fmt.Sprintf("%v", args)
+		d.t.TraceException(ctx, err, 0, fields)
+	}
+	sid, err := generateParentId()
+	if err != nil {
+		sid = "0000"
+	}
+	d.t.TraceDependency(ctx, sid, "sql", d.name, "Query "+query, err == nil, now, after, fields)
 	return res, err
 }
 
@@ -472,13 +399,7 @@ func (d *dbImpl) QueryContext(ctx context.Context, query string, args ...any) (*
 // returns:
 //   - *sql.Row: the row returned by the query
 func (d *dbImpl) QueryRow(query string, args ...any) *sql.Row {
-	now := time.Now()
 	r := d.db.QueryRow(query, args...)
-	elapsed := float64(time.Since(now).Microseconds()) / 1000.0
-	d.logger.Info("[DATABASE]  Executing query",
-		zap.String("query", query),
-		zap.Any("args", args),
-		zap.Float64("elapsed(ms)", elapsed))
 	return r
 }
 
@@ -496,27 +417,17 @@ func (d *dbImpl) QueryRowContext(ctx context.Context, query string, args ...any)
 	now := time.Now()
 	r := d.db.QueryRowContext(ctx, query, args...)
 	after := time.Now()
-	elapsed := float64(after.Sub(now).Microseconds()) / 1000.0
-	d.logger.Info("[DATABASE]  Executing query",
-		zap.String("query", query),
-		zap.Any("args", args),
-		zap.Float64("elapsed(ms)", elapsed))
-	if d.t != nil {
-		d.t.TraceDependency(
-			ctx,
-			"",
-			d.driver,
-			d.name,
-			"QueryRow"+query,
-			true,
-			now,
-			after,
-			map[string]string{
-				"query": query,
-				"args":  fmt.Sprintf("%v", args),
-			},
-		)
+	if d.t == nil {
+		return r
 	}
+	fields := map[string]string{
+		"query": query,
+	}
+	sid, err := generateParentId()
+	if err != nil {
+		sid = "0000"
+	}
+	d.t.TraceDependency(ctx, sid, "sql", d.name, "QueryRow "+query, true, now, after, fields)
 	return r
 }
 
@@ -563,4 +474,10 @@ func (i *dbImpl) SetMaxIdleConns(n int) {
 //   - n: the number of connections to set
 func (i *dbImpl) SetMaxOpenConns(n int) {
 	i.db.SetMaxOpenConns(n)
+}
+
+// WithTrx Adds a tracer to the Database Object
+func (i *dbImpl) WithTrx(t Trx) DB {
+	i.t = t
+	return i
 }
