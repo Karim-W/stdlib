@@ -43,6 +43,7 @@ type Options struct {
 	MaxIdleConns   int
 	MaxOpenConns   int
 	PanicablePings bool
+	Name           string
 }
 
 type dbImpl struct {
@@ -97,6 +98,9 @@ func NewWithOptions(Driver string, DSN string, opts *Options) DB {
 	}
 	if opts.MaxOpenConns > 0 {
 		ndb.SetMaxOpenConns(opts.MaxOpenConns)
+	}
+	if opts.Name != "" {
+		ndb.name = opts.Name
 	}
 	return ndb
 }
