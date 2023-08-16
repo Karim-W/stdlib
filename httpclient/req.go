@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"sync"
@@ -54,27 +55,27 @@ type HTTPRequest interface {
 }
 
 type _HttpRequest struct {
-	httpHooks   *HTTPHook
-	statusCode  int
-	startTime   time.Time
-	endTime     time.Time
-	lock        sync.RWMutex
-	readOnlyUrl string
-	baseUrl     string
-	headers     http.Header
-	querried    bool
-	body        []byte
-	err         error
-	DevMode     bool
-	Cookies     []*http.Cookie
-	ctx         context.Context
-	withLock    bool
-	response    *http.Response
-	resBody     []byte
-	traces      *clientTrace
-	method      string
-	client      *http.Client
-	retries     struct {
+	httpHooks  *HTTPHook
+	statusCode int
+	startTime  time.Time
+	endTime    time.Time
+	lock       sync.RWMutex
+	url        string
+	baseUrl    string
+	headers    http.Header
+	querried   bool
+	body       []byte
+	err        error
+	DevMode    bool
+	Cookies    []*http.Cookie
+	ctx        context.Context
+	withLock   bool
+	response   *http.Response
+	resBody    []byte
+	traces     *clientTrace
+	method     string
+	client     *http.Client
+	retries    struct {
 		retryPolicy RetryPolicy
 		retryCount  int
 		initialWait time.Duration
@@ -101,26 +102,26 @@ func (r *_HttpRequest) AddHeaders(headers map[string]string) HTTPRequest {
 
 func (r *_HttpRequest) AddQuery(key string, value string) HTTPRequest {
 	if !r.querried {
-		r.readOnlyUrl += "?"
+		r.url += "?"
 		r.querried = true
 	} else {
-		r.readOnlyUrl += "&"
+		r.url += "&"
 	}
-	r.readOnlyUrl = key + "=" + value
+	r.url = key + "=" + value
 	return r
 }
 
 func (r *_HttpRequest) AddQueryArray(key string, value []string) HTTPRequest {
 	if !r.querried {
-		r.readOnlyUrl += "?"
+		r.url += "?"
 		r.querried = true
 	} else {
-		r.readOnlyUrl += "&"
+		r.url += "&"
 	}
 	for _, v := range value {
-		r.readOnlyUrl += key + "=" + v + "&"
+		r.url += key + "=" + v + "&"
 	}
-	r.readOnlyUrl = r.readOnlyUrl[:len(r.readOnlyUrl)-1]
+	r.url = r.url[:len(r.url)-1]
 	return r
 }
 
@@ -153,7 +154,7 @@ func (r *_HttpRequest) AddBearerAuth(token string) HTTPRequest {
 }
 
 func (r *_HttpRequest) SetNamedPathParams(regexp string, values []string) HTTPRequest {
-	r.readOnlyUrl = stdlib.EmbedNamedPositionArgs(r.readOnlyUrl, values...)
+	r.url = stdlib.EmbedNamedPositionArgs(r.url, values...)
 	return r
 }
 
@@ -275,6 +276,9 @@ func (r *_HttpRequest) Post() HTTPResponse {
 	retrier.Run(func() error {
 		resp = r.doRequest()
 		if resp.CatchError() != nil {
+			if r.DevMode {
+				fmt.Println(resp.ToCURLOutput())
+			}
 			return resp.CatchError()
 		}
 		return nil
@@ -327,7 +331,7 @@ func (r *_HttpRequest) Invoke(
 		AddBody(body).
 		AddHeaders(*opt.Headers)
 	if len(opt.PositionalArgs) > 0 {
-		r.SetNamedPathParams(r.readOnlyUrl, opt.PositionalArgs)
+		r.SetNamedPathParams(r.url, opt.PositionalArgs)
 	}
 	switch method {
 	case "GET":
@@ -347,10 +351,10 @@ func (r *_HttpRequest) Invoke(
 
 func Req(url string) HTTPRequest {
 	return &_HttpRequest{
-		readOnlyUrl: url,
-		headers:     make(http.Header),
-		traces:      &clientTrace{},
-		client:      &http.Client{},
+		url:     url,
+		headers: make(http.Header),
+		traces:  &clientTrace{},
+		client:  &http.Client{},
 		httpHooks: &HTTPHook{
 			Before: make([]func(*http.Request) error, 0, 2),
 			After:  make([]func(*http.Request, *http.Response, HTTPMetadata, error), 0, 2),
@@ -360,11 +364,11 @@ func Req(url string) HTTPRequest {
 
 func ReqCtx(ctx context.Context, url string) HTTPRequest {
 	return &_HttpRequest{
-		readOnlyUrl: url,
-		headers:     make(http.Header),
-		traces:      &clientTrace{},
-		client:      &http.Client{},
-		ctx:         ctx,
+		url:     url,
+		headers: make(http.Header),
+		traces:  &clientTrace{},
+		client:  &http.Client{},
+		ctx:     ctx,
 		httpHooks: &HTTPHook{
 			Before: make([]func(*http.Request) error, 0, 2),
 			After:  make([]func(*http.Request, *http.Response, HTTPMetadata, error), 0, 2),
