@@ -22,6 +22,7 @@ type HTTPResponse interface {
 	GetBody() []byte
 	GetCookies() []*http.Cookie
 	GetElapsedTime() time.Duration
+	ToCURLOutput() string
 }
 
 func (r *_HttpRequest) GetStatusCode() int { return r.statusCode }
@@ -69,9 +70,9 @@ func (r *_HttpRequest) doRequest() HTTPResponse {
 	}
 	var req *http.Request
 	if r.body != nil {
-		req, r.err = http.NewRequest(r.method, r.readOnlyUrl, bytes.NewBuffer(r.body))
+		req, r.err = http.NewRequest(r.method, r.url, bytes.NewBuffer(r.body))
 	} else {
-		req, r.err = http.NewRequest(r.method, r.readOnlyUrl, nil)
+		req, r.err = http.NewRequest(r.method, r.url, nil)
 	}
 	if r.err != nil {
 		return r
@@ -165,7 +166,7 @@ func (r *_HttpRequest) GetTraceInfo() HttpTraceInfo {
 	return ti
 }
 
-func (r *_HttpRequest) GetUrl() string { return r.readOnlyUrl }
+func (r *_HttpRequest) GetUrl() string { return r.url }
 
 func (r *_HttpRequest) GetMethod() string { return r.method }
 
@@ -176,3 +177,15 @@ func (r *_HttpRequest) GetBody() []byte { return r.resBody }
 func (r *_HttpRequest) GetCookies() []*http.Cookie { return r.Cookies }
 
 func (r *_HttpRequest) GetElapsedTime() time.Duration { return r.traces.endTime.Sub(r.startTime) }
+func (r *_HttpRequest) ToCURLOutput() string {
+	var curlCmd string
+	curlCmd += fmt.Sprintf("curl -X %v ", r.method)
+	for k, v := range r.headers {
+		curlCmd += fmt.Sprintf("-H \"%v: %v\" ", k, v[0])
+	}
+	if r.body != nil {
+		curlCmd += fmt.Sprintf("-d '%v' ", string(r.body))
+	}
+	curlCmd += fmt.Sprintf("%v", r.url)
+	return curlCmd
+}

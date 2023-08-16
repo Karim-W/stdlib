@@ -198,3 +198,11 @@ func TestMatchErrorTestMatchError(t *testing.T) {
 // 	assert.Equal(t, true, res.IsSuccess())
 // 	assert.Equal(t, 200, res.GetStatusCode())
 // }
+
+func TestToCurlFunction(t *testing.T) {
+	res := Req("https://httpbin.org/get").Get()
+	curl := res.ToCURLOutput()
+	fmt.Println(curl)
+	t.Log(curl)
+	assert.Equal(t, "curl -X GET https://httpbin.org/get", curl)
+}
