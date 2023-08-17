@@ -33,6 +33,7 @@ type HTTPRequest interface {
 		amount time.Duration,
 	) HTTPRequest
 	WithContext(ctx context.Context) HTTPRequest
+	WithLogger(logger Logger) HTTPRequest
 	// AddBeforeHook(handler func(req *http.Request) error) HTTPRequest
 	AddAfterHook(handler func(
 		req *http.Request,
@@ -52,16 +53,17 @@ type HTTPRequest interface {
 		opt *stdlib.ClientOptions,
 		body interface{},
 	) HTTPResponse
+	New(url string) HTTPRequest
 }
 
 type _HttpRequest struct {
+	logger     Logger
 	httpHooks  *HTTPHook
 	statusCode int
 	startTime  time.Time
 	endTime    time.Time
 	lock       sync.RWMutex
 	url        string
-	baseUrl    string
 	headers    http.Header
 	querried   bool
 	body       []byte
@@ -159,7 +161,17 @@ func (r *_HttpRequest) SetNamedPathParams(regexp string, values []string) HTTPRe
 }
 
 func (r *_HttpRequest) Dev() HTTPRequest {
+	if r.DevMode {
+		return r
+	}
 	r.DevMode = true
+	r.httpHooks.After = append(r.httpHooks.After,
+		func(req *http.Request, res *http.Response, meta HTTPMetadata, err error) {
+			if err != nil {
+				r.logger.Debug("Request Failure ", r.ToCURLOutput())
+				return
+			}
+		})
 	return r
 }
 
@@ -169,7 +181,17 @@ func (r *_HttpRequest) DevFromEnv() HTTPRequest {
 		r.DevMode = false
 		return r
 	}
+	if r.DevMode {
+		return r
+	}
 	r.DevMode = true
+	r.httpHooks.After = append(r.httpHooks.After,
+		func(req *http.Request, res *http.Response, meta HTTPMetadata, err error) {
+			if err != nil {
+				r.logger.Debug("Request Failure ", r.ToCURLOutput())
+				return
+			}
+		})
 	return r
 }
 
@@ -349,21 +371,41 @@ func (r *_HttpRequest) Invoke(
 	}
 }
 
+func (r *_HttpRequest) WithLogger(logger Logger) HTTPRequest {
+	r.logger = logger
+	return r
+}
+
+func (r *_HttpRequest) New(url string) HTTPRequest {
+	r.url = url
+	r.headers = make(http.Header)
+	r.statusCode = 0
+	r.ctx = context.Background()
+	r.response = nil
+	r.resBody = nil
+	r.body = nil
+	r.err = nil
+	r.method = ""
+	return r
+}
+
 func Req(url string) HTTPRequest {
 	return &_HttpRequest{
+		logger:  &defaultLogger{},
 		url:     url,
 		headers: make(http.Header),
 		traces:  &clientTrace{},
 		client:  &http.Client{},
 		httpHooks: &HTTPHook{
 			Before: make([]func(*http.Request) error, 0, 2),
-			After:  make([]func(*http.Request, *http.Response, HTTPMetadata, error), 0, 2),
+			After:  make([]func(*http.Request, *http.Response, HTTPMetadata, error), 0, 3),
 		},
 	}
 }
 
 func ReqCtx(ctx context.Context, url string) HTTPRequest {
 	return &_HttpRequest{
+		logger:  &defaultLogger{},
 		url:     url,
 		headers: make(http.Header),
 		traces:  &clientTrace{},
@@ -371,7 +413,7 @@ func ReqCtx(ctx context.Context, url string) HTTPRequest {
 		ctx:     ctx,
 		httpHooks: &HTTPHook{
 			Before: make([]func(*http.Request) error, 0, 2),
-			After:  make([]func(*http.Request, *http.Response, HTTPMetadata, error), 0, 2),
+			After:  make([]func(*http.Request, *http.Response, HTTPMetadata, error), 0, 3),
 		},
 	}
 }
