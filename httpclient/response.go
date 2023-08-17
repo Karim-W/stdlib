@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -178,14 +179,24 @@ func (r *_HttpRequest) GetCookies() []*http.Cookie { return r.Cookies }
 
 func (r *_HttpRequest) GetElapsedTime() time.Duration { return r.traces.endTime.Sub(r.startTime) }
 func (r *_HttpRequest) ToCURLOutput() string {
-	var curlCmd string
-	curlCmd += fmt.Sprintf("curl -X %v ", r.method)
+	builder := strings.Builder{}
+	builder.WriteString("curl -X ")
+	builder.WriteString(r.method)
+	builder.WriteString(" ")
+	builder.WriteString(r.url)
+	builder.WriteString(" ")
 	for k, v := range r.headers {
-		curlCmd += fmt.Sprintf("-H \"%v: %v\" ", k, v[0])
+		builder.WriteString("-H '")
+		builder.WriteString(k)
+		builder.WriteString(": ")
+		builder.WriteString(v[0])
+		builder.WriteString("' ")
 	}
 	if r.body != nil {
-		curlCmd += fmt.Sprintf("-d '%v' ", string(r.body))
+		builder.WriteString("-d '")
+		b := string(r.body)
+		builder.WriteString(b)
+		builder.WriteString("'")
 	}
-	curlCmd += fmt.Sprintf("%v", r.url)
-	return curlCmd
+	return builder.String()
 }

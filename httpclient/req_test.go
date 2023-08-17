@@ -199,10 +199,39 @@ func TestMatchErrorTestMatchError(t *testing.T) {
 // 	assert.Equal(t, 200, res.GetStatusCode())
 // }
 
-func TestToCurlFunction(t *testing.T) {
+func TestToCurlFunctionGet(t *testing.T) {
 	res := Req("https://httpbin.org/get").Get()
 	curl := res.ToCURLOutput()
-	fmt.Println(curl)
 	t.Log(curl)
-	assert.Equal(t, "curl -X GET https://httpbin.org/get", curl)
+	assert.Equal(t, "curl -X GET https://httpbin.org/get ", curl)
+}
+
+func TestToCurlFunctionPost(t *testing.T) {
+	req := map[string]interface{}{
+		"hello": "world",
+	}
+	res := Req("https://httpbin.org/post").AddBody(req).Post()
+	curl := res.ToCURLOutput()
+	t.Log(curl)
+	assert.Equal(t, "curl -X POST https://httpbin.org/post -d '{\"hello\":\"world\"}'", curl)
+}
+
+func TestNewFunc(t *testing.T) {
+	req := map[string]interface{}{
+		"hello": "world",
+	}
+	hook := func(req *http.Request, res *http.Response, meta HTTPMetadata, err error) {
+		fmt.Println("hook called")
+		fmt.Println("elapsed(ms): ", meta.EndTime.Sub(meta.StartTime).Milliseconds())
+		assert.Nil(t, err)
+	}
+	client := Req("https://httpbin.org/post").AddAfterHook(hook)
+	res := client.AddBody(req).Post()
+	curl := res.ToCURLOutput()
+	t.Log(curl)
+	assert.Equal(t, "curl -X POST https://httpbin.org/post -d '{\"hello\":\"world\"}'", curl)
+	res = client.New("https://httpbin.org/get").Get()
+	curl = res.ToCURLOutput()
+	t.Log(curl)
+	assert.Equal(t, "curl -X GET https://httpbin.org/get ", curl)
 }
