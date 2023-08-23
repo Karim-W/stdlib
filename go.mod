@@ -6,6 +6,7 @@ require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/Soreing/retrier v1.1.0
 	github.com/go-redis/redis v6.15.9+incompatible
+	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-sql-driver/mysql v1.7.1
 	github.com/libsql/libsql-client-go v0.0.0-20230710132643-6f49934b7fb3
 	github.com/mattn/go-sqlite3 v1.14.17
@@ -18,7 +19,9 @@ require (
 require (
 	code.cloudfoundry.org/clock v1.0.0 // indirect
 	github.com/antlr/antlr4/runtime/Go/antlr/v4 v4.0.0-20230512164433-5d1fd1a340c9 // indirect
+	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
+	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/gofrs/uuid v4.2.0+incompatible // indirect
 	github.com/google/uuid v1.3.0 // indirect
