@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"sync"
@@ -26,6 +25,7 @@ type HTTPRequest interface {
 	SetNamedPathParams(regexp string, values []string) HTTPRequest
 	Dev() HTTPRequest
 	DevFromEnv() HTTPRequest
+	JSON() HTTPRequest
 	WithCookie(cookie *http.Cookie) HTTPRequest
 	WithRetries(
 		policy RetryPolicy,
@@ -42,17 +42,27 @@ type HTTPRequest interface {
 		err error)) HTTPRequest
 	Begin() HTTPRequest
 	Get() HTTPResponse
+	GetAsync() <-chan HTTPResponse
 	Put() HTTPResponse
+	PutAsync() <-chan HTTPResponse
 	Del() HTTPResponse
+	DelAsync() <-chan HTTPResponse
 	Post() HTTPResponse
+	PostAsync() <-chan HTTPResponse
 	Patch() HTTPResponse
+	PatchAsync() <-chan HTTPResponse
 	Invoke(
 		ctx context.Context,
 		method string,
-		url string,
 		opt *stdlib.ClientOptions,
 		body interface{},
 	) HTTPResponse
+	InvokeAsync(
+		ctx context.Context,
+		method string,
+		opt *stdlib.ClientOptions,
+		body interface{},
+	) <-chan HTTPResponse
 	New(url string) HTTPRequest
 }
 
@@ -109,7 +119,7 @@ func (r *_HttpRequest) AddQuery(key string, value string) HTTPRequest {
 	} else {
 		r.url += "&"
 	}
-	r.url = key + "=" + value
+	r.url += key + "=" + value
 	return r
 }
 
@@ -167,10 +177,7 @@ func (r *_HttpRequest) Dev() HTTPRequest {
 	r.DevMode = true
 	r.httpHooks.After = append(r.httpHooks.After,
 		func(req *http.Request, res *http.Response, meta HTTPMetadata, err error) {
-			if err != nil {
-				r.logger.Debug("Request Failure ", r.ToCURLOutput())
-				return
-			}
+			r.logger.Debug(r.CURL())
 		})
 	return r
 }
@@ -184,15 +191,7 @@ func (r *_HttpRequest) DevFromEnv() HTTPRequest {
 	if r.DevMode {
 		return r
 	}
-	r.DevMode = true
-	r.httpHooks.After = append(r.httpHooks.After,
-		func(req *http.Request, res *http.Response, meta HTTPMetadata, err error) {
-			if err != nil {
-				r.logger.Debug("Request Failure ", r.ToCURLOutput())
-				return
-			}
-		})
-	return r
+	return r.Dev()
 }
 
 func (r *_HttpRequest) WithCookie(cookie *http.Cookie) HTTPRequest {
@@ -271,6 +270,15 @@ func (r *_HttpRequest) Get() HTTPResponse {
 	return resp
 }
 
+func (r *_HttpRequest) GetAsync() <-chan HTTPResponse {
+	res := make(chan HTTPResponse)
+	requestCopy := r
+	go func(req *_HttpRequest, res chan<- HTTPResponse) {
+		res <- req.Get()
+	}(requestCopy, res)
+	return res
+}
+
 func (r *_HttpRequest) Put() HTTPResponse {
 	r.method = "PUT"
 	retrier := r.getRetrier()
@@ -288,6 +296,15 @@ func (r *_HttpRequest) Put() HTTPResponse {
 	return resp
 }
 
+func (r *_HttpRequest) PutAsync() <-chan HTTPResponse {
+	res := make(chan HTTPResponse)
+	requestCopy := r
+	go func(req *_HttpRequest, res chan<- HTTPResponse) {
+		res <- req.Put()
+	}(requestCopy, res)
+	return res
+}
+
 func (r *_HttpRequest) Post() HTTPResponse {
 	r.method = "POST"
 	retrier := r.getRetrier()
@@ -298,14 +315,20 @@ func (r *_HttpRequest) Post() HTTPResponse {
 	retrier.Run(func() error {
 		resp = r.doRequest()
 		if resp.CatchError() != nil {
-			if r.DevMode {
-				fmt.Println(resp.ToCURLOutput())
-			}
 			return resp.CatchError()
 		}
 		return nil
 	})
 	return resp
+}
+
+func (r *_HttpRequest) PostAsync() <-chan HTTPResponse {
+	res := make(chan HTTPResponse)
+	requestCopy := r
+	go func(req *_HttpRequest, res chan<- HTTPResponse) {
+		res <- req.Post()
+	}(requestCopy, res)
+	return res
 }
 
 func (r *_HttpRequest) Patch() HTTPResponse {
@@ -325,6 +348,15 @@ func (r *_HttpRequest) Patch() HTTPResponse {
 	return resp
 }
 
+func (r *_HttpRequest) PatchAsync() <-chan HTTPResponse {
+	res := make(chan HTTPResponse)
+	requestCopy := r
+	go func(req *_HttpRequest, res chan<- HTTPResponse) {
+		res <- req.Patch()
+	}(requestCopy, res)
+	return res
+}
+
 func (r *_HttpRequest) Del() HTTPResponse {
 	r.method = "DELETE"
 	retrier := r.getRetrier()
@@ -342,18 +374,30 @@ func (r *_HttpRequest) Del() HTTPResponse {
 	return resp
 }
 
+func (r *_HttpRequest) DelAsync() <-chan HTTPResponse {
+	res := make(chan HTTPResponse)
+	requestCopy := r
+	go func(req *_HttpRequest, res chan<- HTTPResponse) {
+		res <- req.Del()
+	}(requestCopy, res)
+	return res
+}
+
 func (r *_HttpRequest) Invoke(
 	ctx context.Context,
 	method string,
-	url string,
 	opt *stdlib.ClientOptions,
 	body interface{},
 ) HTTPResponse {
-	r.WithContext(ctx).
-		AddBody(body).
-		AddHeaders(*opt.Headers)
-	if len(opt.PositionalArgs) > 0 {
-		r.SetNamedPathParams(r.url, opt.PositionalArgs)
+	r.WithContext(ctx)
+	if opt != nil {
+		r.AddHeaders(*opt.Headers)
+		if len(opt.PositionalArgs) > 0 {
+			r.SetNamedPathParams(r.url, opt.PositionalArgs)
+		}
+	}
+	if body != nil {
+		r.AddBody(body)
 	}
 	switch method {
 	case "GET":
@@ -371,9 +415,27 @@ func (r *_HttpRequest) Invoke(
 	}
 }
 
+func (r *_HttpRequest) InvokeAsync(
+	ctx context.Context,
+	method string,
+	opt *stdlib.ClientOptions,
+	body interface{},
+) <-chan HTTPResponse {
+	res := make(chan HTTPResponse)
+	requestCopy := r
+	go func(req *_HttpRequest, res chan<- HTTPResponse) {
+		res <- req.Invoke(ctx, method, opt, body)
+	}(requestCopy, res)
+	return res
+}
+
 func (r *_HttpRequest) WithLogger(logger Logger) HTTPRequest {
 	r.logger = logger
 	return r
+}
+
+func (r *_HttpRequest) JSON() HTTPRequest {
+	return r.AddHeader("Content-Type", "application/json")
 }
 
 func (r *_HttpRequest) New(url string) HTTPRequest {
@@ -386,6 +448,7 @@ func (r *_HttpRequest) New(url string) HTTPRequest {
 	r.body = nil
 	r.err = nil
 	r.method = ""
+	r.querried = false
 	return r
 }
 
