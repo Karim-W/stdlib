@@ -23,7 +23,7 @@ type HTTPResponse interface {
 	GetBody() []byte
 	GetCookies() []*http.Cookie
 	GetElapsedTime() time.Duration
-	ToCURLOutput() string
+	CURL() string
 }
 
 func (r *_HttpRequest) GetStatusCode() int { return r.statusCode }
@@ -178,22 +178,22 @@ func (r *_HttpRequest) GetBody() []byte { return r.resBody }
 func (r *_HttpRequest) GetCookies() []*http.Cookie { return r.Cookies }
 
 func (r *_HttpRequest) GetElapsedTime() time.Duration { return r.traces.endTime.Sub(r.startTime) }
-func (r *_HttpRequest) ToCURLOutput() string {
+func (r *_HttpRequest) CURL() string {
 	builder := strings.Builder{}
 	builder.WriteString("curl -X ")
 	builder.WriteString(r.method)
-	builder.WriteString(" ")
+	builder.WriteString(" '")
 	builder.WriteString(r.url)
-	builder.WriteString(" ")
+	builder.WriteString("'")
 	for k, v := range r.headers {
-		builder.WriteString("-H '")
+		builder.WriteString(" -H '")
 		builder.WriteString(k)
 		builder.WriteString(": ")
 		builder.WriteString(v[0])
-		builder.WriteString("' ")
+		builder.WriteString("'")
 	}
 	if r.body != nil {
-		builder.WriteString("-d '")
+		builder.WriteString(" -d '")
 		b := string(r.body)
 		builder.WriteString(b)
 		builder.WriteString("'")
