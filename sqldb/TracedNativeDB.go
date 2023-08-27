@@ -278,8 +278,8 @@ func (d *dbImpl) ExecContext(ctx context.Context, query string, args ...any) (sq
 		fields["args"] = fmt.Sprintf("%v", args)
 		d.t.TraceException(ctx, err, 0, fields)
 	}
-	sid, err := generateParentId()
-	if err != nil {
+	sid, err2 := generateParentId()
+	if err2 != nil {
 		sid = "0000"
 	}
 	d.t.TraceDependency(ctx, sid, "sql", d.name, "EXEC "+query, err == nil, now, after, fields)
@@ -385,8 +385,8 @@ func (d *dbImpl) QueryContext(ctx context.Context, query string, args ...any) (*
 		fields["args"] = fmt.Sprintf("%v", args)
 		d.t.TraceException(ctx, err, 0, fields)
 	}
-	sid, err := generateParentId()
-	if err != nil {
+	sid, err2 := generateParentId()
+	if err2 != nil {
 		sid = "0000"
 	}
 	d.t.TraceDependency(ctx, sid, "sql", d.name, "Query "+query, err == nil, now, after, fields)

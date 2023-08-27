@@ -42,8 +42,8 @@ func (t *Tx) QueryContext(
 		fields["args"] = fmt.Sprintf("%v", args)
 		t.t.TraceException(ctx, err, 0, fields)
 	}
-	sid, err := generateParentId()
-	if err != nil {
+	sid, err2 := generateParentId()
+	if err2 != nil {
 		sid = "0000"
 	}
 	t.t.TraceDependency(
@@ -88,8 +88,8 @@ func (t *Tx) ExecContext(
 		fields["args"] = fmt.Sprintf("%v", args)
 		t.t.TraceException(ctx, err, 0, fields)
 	}
-	sid, err := generateParentId()
-	if err != nil {
+	sid, err2 := generateParentId()
+	if err2 != nil {
 		sid = "0000"
 	}
 	t.t.TraceDependency(ctx, sid, "sql", t.name, "Exec "+query, err == nil, now, after, fields)
