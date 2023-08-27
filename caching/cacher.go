@@ -17,17 +17,21 @@ const (
 	REDIS_CACHE_TYPE  = "Redis"
 )
 
-var (
-	Err_KEY_NOT_FOUND = fmt.Errorf("key not found")
-)
+var Err_KEY_NOT_FOUND = fmt.Errorf("key not found")
 
+// Deprecated: will be retired soon
 type Cache interface {
 	Get(key string) (interface{}, error)
 	Set(key string, value interface{}) error
 	SetWithExpiration(key string, value interface{}, expiration time.Duration) error
 	GetCtx(ctx context.Context, key string) (interface{}, error)
 	SetCtx(ctx context.Context, key string, value interface{}) error
-	SetWithExpirationCtx(ctx context.Context, key string, value interface{}, expiration time.Duration) error
+	SetWithExpirationCtx(
+		ctx context.Context,
+		key string,
+		value interface{},
+		expiration time.Duration,
+	) error
 	Delete(key string) error
 	DeleteCtx(ctx context.Context, key string) error
 	Keys(pattern string) ([]string, error)
@@ -37,6 +41,7 @@ type Cache interface {
 	WithName(name string) Cache
 }
 
+// Deprecated: will be retired soon
 type cacheImpl struct {
 	typ    string
 	name   string
@@ -46,6 +51,7 @@ type cacheImpl struct {
 	lgr    *zap.Logger
 }
 
+// Deprecated: will be retired soon
 // InitRedisCache initializes cache with redis type
 // params:
 //   - url: redis url
@@ -69,6 +75,7 @@ func InitRedisCache(
 	return c, nil
 }
 
+// Deprecated: will be retired soon
 // InitMemoryCache initializes cache with in-memory type
 // params:
 //   - expiration: expiration time
@@ -87,6 +94,7 @@ func InitMemoryCache(
 	return c
 }
 
+// Deprecated: will be retired soon
 // WithLogger returns a new instance of Cache with a new logger
 // params:
 //   - l: logger
@@ -110,6 +118,7 @@ func (c *cacheImpl) WithLogger(l *zap.Logger) Cache {
 	return newC
 }
 
+// Deprecated: will be retired soon
 // WithName returns a new instance of Cache with a new name
 // params:
 //   - name: name
@@ -135,6 +144,7 @@ func (c *cacheImpl) WithName(name string) Cache {
 	return newC
 }
 
+// Deprecated: will be retired soon
 // WithTracer returns a new instance of Cache with a new tracer
 // params:
 //   - t: tracer
@@ -158,6 +168,7 @@ func (c *cacheImpl) WithTracer(t *tracer.AppInsightsCore) Cache {
 	return newC
 }
 
+// Deprecated: will be retired soon
 func (c *cacheImpl) ping() {
 	crashLgr, err := zap.NewProduction()
 	if err != nil {
@@ -183,7 +194,7 @@ func (c *cacheImpl) ping() {
 }
 
 // ===============================================================================	Core	Funcs	=========================================================================
-
+// Deprecated: will be retired soon
 // Get returns the value for the given key
 // params:
 //   - key:string => key
@@ -195,6 +206,7 @@ func (c *cacheImpl) Get(key string) (interface{}, error) {
 	return c.GetCtx(context.TODO(), key)
 }
 
+// Deprecated: will be retired soon
 // GetCtx returns the value for the given key
 // params:
 //   - ctx: context
@@ -223,23 +235,44 @@ func (c *cacheImpl) GetCtx(ctx context.Context, key string) (interface{}, error)
 				"cacheType": c.typ,
 				"elasped":   end.Sub(now).String(),
 			})
-			c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "GET", false, now, end, map[string]string{
-				"cacheType": c.typ,
-				"key":       key,
-			})
+			c.tracer.TraceDependency(
+				ctx,
+				"000",
+				c.typ,
+				c.tracer.ServName,
+				"GET",
+				false,
+				now,
+				end,
+				map[string]string{
+					"cacheType": c.typ,
+					"key":       key,
+				},
+			)
 		}
 		return nil, err
 	}
 	c.lgr.Info("[Cache] Get", zap.String("key", key), zap.String("elasped", end.Sub(now).String()))
 	if c.tracer != nil {
-		c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "GET", true, now, end, map[string]string{
-			"cacheType": c.typ,
-			"key":       key,
-		})
+		c.tracer.TraceDependency(
+			ctx,
+			"000",
+			c.typ,
+			c.tracer.ServName,
+			"GET",
+			true,
+			now,
+			end,
+			map[string]string{
+				"cacheType": c.typ,
+				"key":       key,
+			},
+		)
 	}
 	return res, nil
 }
 
+// Deprecated: will be retired soon
 // Set sets the value for the given key
 // params:
 //   - key:string => key
@@ -251,6 +284,7 @@ func (c *cacheImpl) Set(key string, value interface{}) error {
 	return c.SetCtx(context.TODO(), key, value)
 }
 
+// Deprecated: will be retired soon
 // SetCtx sets the value for the given key
 // params:
 //   - ctx: context
@@ -278,23 +312,44 @@ func (c *cacheImpl) SetCtx(ctx context.Context, key string, value interface{}) e
 				"cacheType": c.typ,
 				"elasped":   end.Sub(now).String(),
 			})
-			c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "SET", false, now, end, map[string]string{
-				"cacheType": c.typ,
-				"key":       key,
-			})
+			c.tracer.TraceDependency(
+				ctx,
+				"000",
+				c.typ,
+				c.tracer.ServName,
+				"SET",
+				false,
+				now,
+				end,
+				map[string]string{
+					"cacheType": c.typ,
+					"key":       key,
+				},
+			)
 		}
 		return err
 	}
 	c.lgr.Info("[Cache] Set", zap.String("key", key), zap.String("elasped", end.Sub(now).String()))
 	if c.tracer != nil {
-		c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "SET", true, now, end, map[string]string{
-			"cacheType": c.typ,
-			"key":       key,
-		})
+		c.tracer.TraceDependency(
+			ctx,
+			"000",
+			c.typ,
+			c.tracer.ServName,
+			"SET",
+			true,
+			now,
+			end,
+			map[string]string{
+				"cacheType": c.typ,
+				"key":       key,
+			},
+		)
 	}
 	return nil
 }
 
+// Deprecated: will be retired soon
 // Delete deletes the value for the given key
 // params:
 //   - key:string => key
@@ -305,6 +360,7 @@ func (c *cacheImpl) Delete(key string) error {
 	return c.DeleteCtx(context.TODO(), key)
 }
 
+// Deprecated: will be retired soon
 // DeleteCtx deletes the value for the given key
 // params:
 //   - ctx: context
@@ -331,23 +387,48 @@ func (c *cacheImpl) DeleteCtx(ctx context.Context, key string) error {
 				"cacheType": c.typ,
 				"elasped":   end.Sub(now).String(),
 			})
-			c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "DEL", false, now, end, map[string]string{
-				"cacheType": c.typ,
-				"key":       key,
-			})
+			c.tracer.TraceDependency(
+				ctx,
+				"000",
+				c.typ,
+				c.tracer.ServName,
+				"DEL",
+				false,
+				now,
+				end,
+				map[string]string{
+					"cacheType": c.typ,
+					"key":       key,
+				},
+			)
 		}
 		return err
 	}
-	c.lgr.Info("[Cache] Delete", zap.String("key", key), zap.String("elasped", end.Sub(now).String()))
+	c.lgr.Info(
+		"[Cache] Delete",
+		zap.String("key", key),
+		zap.String("elasped", end.Sub(now).String()),
+	)
 	if c.tracer != nil {
-		c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "DEL", true, now, end, map[string]string{
-			"cacheType": c.typ,
-			"key":       key,
-		})
+		c.tracer.TraceDependency(
+			ctx,
+			"000",
+			c.typ,
+			c.tracer.ServName,
+			"DEL",
+			true,
+			now,
+			end,
+			map[string]string{
+				"cacheType": c.typ,
+				"key":       key,
+			},
+		)
 	}
 	return nil
 }
 
+// Deprecated: will be retired soon
 // Keys returns the keys matching the given pattern
 // params:
 //   - pattern:string => pattern
@@ -359,6 +440,7 @@ func (c *cacheImpl) Keys(pattern string) ([]string, error) {
 	return c.KeysCtx(context.TODO(), pattern)
 }
 
+// Deprecated: will be retired soon
 // KeysCtx returns the keys matching the given pattern
 // params:
 //   - ctx: context
@@ -379,7 +461,11 @@ func (c *cacheImpl) KeysCtx(ctx context.Context, pattern string) ([]string, erro
 	}
 	end := time.Now()
 	if err != nil {
-		c.lgr.Error("[Cache] Error fetching keys from cache", zap.String("pattern", pattern), zap.Error(err))
+		c.lgr.Error(
+			"[Cache] Error fetching keys from cache",
+			zap.String("pattern", pattern),
+			zap.Error(err),
+		)
 		if c.tracer != nil {
 			c.tracer.TraceException(ctx, err, 0, map[string]string{
 				"error":     "Error fetching keys from cache",
@@ -387,23 +473,48 @@ func (c *cacheImpl) KeysCtx(ctx context.Context, pattern string) ([]string, erro
 				"cacheType": c.typ,
 				"elasped":   end.Sub(now).String(),
 			})
-			c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "KEYS", false, now, end, map[string]string{
-				"cacheType": c.typ,
-				"pattern":   pattern,
-			})
+			c.tracer.TraceDependency(
+				ctx,
+				"000",
+				c.typ,
+				c.tracer.ServName,
+				"KEYS",
+				false,
+				now,
+				end,
+				map[string]string{
+					"cacheType": c.typ,
+					"pattern":   pattern,
+				},
+			)
 		}
 		return nil, err
 	}
-	c.lgr.Info("[Cache] Keys", zap.String("pattern", pattern), zap.String("elasped", end.Sub(now).String()))
+	c.lgr.Info(
+		"[Cache] Keys",
+		zap.String("pattern", pattern),
+		zap.String("elasped", end.Sub(now).String()),
+	)
 	if c.tracer != nil {
-		c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "KEYS", true, now, end, map[string]string{
-			"cacheType": c.typ,
-			"pattern":   pattern,
-		})
+		c.tracer.TraceDependency(
+			ctx,
+			"000",
+			c.typ,
+			c.tracer.ServName,
+			"KEYS",
+			true,
+			now,
+			end,
+			map[string]string{
+				"cacheType": c.typ,
+				"pattern":   pattern,
+			},
+		)
 	}
 	return res, nil
 }
 
+// Deprecated: will be retired soon
 // SetWithExpirationCtx sets the value for the given key with expiration
 // params:
 //   - ctx: context => context
@@ -413,7 +524,12 @@ func (c *cacheImpl) KeysCtx(ctx context.Context, pattern string) ([]string, erro
 //
 // returns:
 //   - error: error if any
-func (c *cacheImpl) SetWithExpirationCtx(ctx context.Context, key string, value interface{}, expiration time.Duration) error {
+func (c *cacheImpl) SetWithExpirationCtx(
+	ctx context.Context,
+	key string,
+	value interface{},
+	expiration time.Duration,
+) error {
 	now := time.Now()
 	var err error
 	switch c.typ {
@@ -432,25 +548,46 @@ func (c *cacheImpl) SetWithExpirationCtx(ctx context.Context, key string, value 
 				"cacheType": c.typ,
 				"elasped":   end.Sub(now).String(),
 			})
-			c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "SET", false, now, end, map[string]string{
-				"cacheType":  c.typ,
-				"key":        key,
-				"expiration": expiration.String(),
-			})
+			c.tracer.TraceDependency(
+				ctx,
+				"000",
+				c.typ,
+				c.tracer.ServName,
+				"SET",
+				false,
+				now,
+				end,
+				map[string]string{
+					"cacheType":  c.typ,
+					"key":        key,
+					"expiration": expiration.String(),
+				},
+			)
 		}
 		return err
 	}
 	c.lgr.Info("[Cache] Set", zap.String("key", key), zap.String("elasped", end.Sub(now).String()))
 	if c.tracer != nil {
-		c.tracer.TraceDependency(ctx, "000", c.typ, c.tracer.ServName, "SET", true, now, end, map[string]string{
-			"cacheType":  c.typ,
-			"key":        key,
-			"expiration": expiration.String(),
-		})
+		c.tracer.TraceDependency(
+			ctx,
+			"000",
+			c.typ,
+			c.tracer.ServName,
+			"SET",
+			true,
+			now,
+			end,
+			map[string]string{
+				"cacheType":  c.typ,
+				"key":        key,
+				"expiration": expiration.String(),
+			},
+		)
 	}
 	return nil
 }
 
+// Deprecated: will be retired soon
 // SetWithExpiration sets the value for the given key with expiration
 // params:
 //   - key:string => key
@@ -459,12 +596,16 @@ func (c *cacheImpl) SetWithExpirationCtx(ctx context.Context, key string, value 
 //
 // returns:
 //   - error: error if any
-func (c *cacheImpl) SetWithExpiration(key string, value interface{}, expiration time.Duration) error {
+func (c *cacheImpl) SetWithExpiration(
+	key string,
+	value interface{},
+	expiration time.Duration,
+) error {
 	return c.SetWithExpirationCtx(context.TODO(), key, value, expiration)
 }
 
-//===============================================================================	Redis	Cache	=========================================================================
-
+// ===============================================================================	Redis	Cache	=========================================================================
+// Deprecated: will be retired soon
 func (c *cacheImpl) fetchFromRedisCache(
 	ctx context.Context,
 	key string,
@@ -472,6 +613,7 @@ func (c *cacheImpl) fetchFromRedisCache(
 	return c.redis.Get(key).Result()
 }
 
+// Deprecated: will be retired soon
 func (c *cacheImpl) setRedisCache(
 	ctx context.Context,
 	key string,
@@ -480,6 +622,7 @@ func (c *cacheImpl) setRedisCache(
 	return c.redis.Set(key, value, 0).Err()
 }
 
+// Deprecated: will be retired soon
 func (c *cacheImpl) deleteFromRedisCache(
 	ctx context.Context,
 	key string,
@@ -487,6 +630,7 @@ func (c *cacheImpl) deleteFromRedisCache(
 	return c.redis.Del(key).Err()
 }
 
+// Deprecated: will be retired soon
 func (c *cacheImpl) fetchKeysFromRedisCache(
 	ctx context.Context,
 	key string,
@@ -494,6 +638,7 @@ func (c *cacheImpl) fetchKeysFromRedisCache(
 	return c.redis.Keys(key).Result()
 }
 
+// Deprecated: will be retired soon
 func (c *cacheImpl) setWithExpiryRedisCache(
 	ctx context.Context,
 	key string,
@@ -504,6 +649,7 @@ func (c *cacheImpl) setWithExpiryRedisCache(
 }
 
 // ===============================================================================	Memory	Cache	=========================================================================
+// Deprecated: will be retired soon
 func (c *cacheImpl) fetchFromMemcache(ctx context.Context, key string) (interface{}, error) {
 	v, ok := c.mem.Get(key)
 	if !ok {
@@ -512,19 +658,23 @@ func (c *cacheImpl) fetchFromMemcache(ctx context.Context, key string) (interfac
 	return v, nil
 }
 
+// Deprecated: will be retired soon
 func (c *cacheImpl) setMemcache(ctx context.Context, key string, value interface{}) error {
 	c.mem.Set(key, value, gc.DefaultExpiration)
 	return nil
 }
 
+// Deprecated: will be retired soon
 func (c *cacheImpl) deleteFromMemcache(ctx context.Context, key string) error {
 	c.mem.Delete(key)
 	return nil
 }
+
+// Deprecated: will be retired soon
 func (c *cacheImpl) fetchKeysFromMemcache(ctx context.Context, pattern string) ([]string, error) {
 	keys := c.mem.Items()
 	var res []string
-	for key, _ := range keys {
+	for key := range keys {
 		if strings.Contains(key, pattern) {
 			res = append(res, key)
 		}
@@ -532,7 +682,13 @@ func (c *cacheImpl) fetchKeysFromMemcache(ctx context.Context, pattern string) (
 	return res, nil
 }
 
-func (c *cacheImpl) setWithExpiryMemcache(ctx context.Context, key string, value interface{}, expiry time.Duration) error {
+// Deprecated: will be retired soon
+func (c *cacheImpl) setWithExpiryMemcache(
+	ctx context.Context,
+	key string,
+	value interface{},
+	expiry time.Duration,
+) error {
 	c.mem.Set(key, value, expiry)
 	return nil
 }
