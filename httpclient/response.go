@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -107,7 +107,7 @@ func (r *_HttpRequest) doRequest() HTTPResponse {
 	r.statusCode = r.response.StatusCode
 
 	var byts []byte
-	byts, r.err = ioutil.ReadAll(r.response.Body)
+	byts, r.err = io.ReadAll(r.response.Body)
 	if r.err != nil {
 		return r
 	}

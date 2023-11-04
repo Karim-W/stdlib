@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"os"
 	"sync"
 	"time"
@@ -119,7 +120,7 @@ func (r *_HttpRequest) AddQuery(key string, value string) HTTPRequest {
 	} else {
 		r.url += "&"
 	}
-	r.url += key + "=" + value
+	r.url += url.QueryEscape(key) + "=" + url.QueryEscape(value)
 	return r
 }
 
@@ -131,7 +132,7 @@ func (r *_HttpRequest) AddQueryArray(key string, value []string) HTTPRequest {
 		r.url += "&"
 	}
 	for _, v := range value {
-		r.url += key + "=" + v + "&"
+		r.url += url.QueryEscape(key) + "=" + url.QueryEscape(v) + "&"
 	}
 	r.url = r.url[:len(r.url)-1]
 	return r
@@ -260,12 +261,12 @@ func (r *_HttpRequest) Get() HTTPResponse {
 		return r.doRequest()
 	}
 	var resp HTTPResponse
-	retrier.Run(func() error {
+	retrier.Run(func() (error, bool) {
 		resp = r.doRequest()
 		if resp.CatchError() != nil {
-			return resp.CatchError()
+			return resp.CatchError(), false
 		}
-		return nil
+		return nil, true
 	})
 	return resp
 }
@@ -286,12 +287,12 @@ func (r *_HttpRequest) Put() HTTPResponse {
 		return r.doRequest()
 	}
 	var resp HTTPResponse
-	retrier.Run(func() error {
+	retrier.Run(func() (error, bool) {
 		resp = r.doRequest()
 		if resp.CatchError() != nil {
-			return resp.CatchError()
+			return resp.CatchError(), false
 		}
-		return nil
+		return nil, true
 	})
 	return resp
 }
@@ -312,12 +313,12 @@ func (r *_HttpRequest) Post() HTTPResponse {
 		return r.doRequest()
 	}
 	var resp HTTPResponse
-	retrier.Run(func() error {
+	retrier.Run(func() (error, bool) {
 		resp = r.doRequest()
 		if resp.CatchError() != nil {
-			return resp.CatchError()
+			return resp.CatchError(), false
 		}
-		return nil
+		return nil, true
 	})
 	return resp
 }
@@ -338,12 +339,12 @@ func (r *_HttpRequest) Patch() HTTPResponse {
 		return r.doRequest()
 	}
 	var resp HTTPResponse
-	retrier.Run(func() error {
+	retrier.Run(func() (error, bool) {
 		resp = r.doRequest()
 		if resp.CatchError() != nil {
-			return resp.CatchError()
+			return resp.CatchError(), false
 		}
-		return nil
+		return nil, true
 	})
 	return resp
 }
@@ -364,12 +365,12 @@ func (r *_HttpRequest) Del() HTTPResponse {
 		return r.doRequest()
 	}
 	var resp HTTPResponse
-	retrier.Run(func() error {
+	retrier.Run(func() (error, bool) {
 		resp = r.doRequest()
 		if resp.CatchError() != nil {
-			return resp.CatchError()
+			return resp.CatchError(), false
 		}
-		return nil
+		return nil, true
 	})
 	return resp
 }
