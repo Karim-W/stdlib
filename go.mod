@@ -2,8 +2,6 @@ module github.com/karim-w/stdlib
 
 go 1.21
 
-toolchain go1.21.0
-
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/Soreing/retrier v1.3.0
