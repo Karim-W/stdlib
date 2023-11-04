@@ -10,7 +10,6 @@ import (
 	tracer "github.com/BetaLixT/appInsightsTrace"
 	_ "github.com/go-sql-driver/mysql"
 	_ "github.com/lib/pq"
-	_ "github.com/libsql/libsql-client-go/libsql"
 	_ "github.com/mattn/go-sqlite3"
 	"go.uber.org/zap"
 	_ "modernc.org/sqlite"
@@ -72,8 +71,6 @@ func NewWithOptions(Driver string, DSN string, opts *Options) DB {
 		db, err = sql.Open("mysql", DSN)
 	case "sqlite3":
 		db, err = sql.Open("sqlite3", DSN)
-	case "libsql":
-		db, err = sql.Open("libsql", DSN)
 	case "sqlserver":
 		panic("be fucking for real, make better choices")
 	default:
