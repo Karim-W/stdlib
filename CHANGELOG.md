@@ -2,6 +2,90 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.5.1] - 2023-11-04
+
+### Breaking
+
+- Removed libsql support
+
+### Bug Fixes
+
+- Removed random tool chain mopd
+- Rewired go mod
+
+### Features
+
+- Bumped retrier version and querry escaped httpclient stuff
+- Added string builder util func
+
+## [0.5.0] - 2023-08-27
+
+### Documentation
+
+- Added deprecatation notice on cacher package since it will be removed soon
+
+### Testing
+
+- Added w3c tests and removed the http test incase of upstream failure
+
+### Bugfix
+
+- Fixed the error overwirte bug for row,err  or result,err tuple returns
+
+## [0.4.9] - 2023-08-24
+
+### Features
+
+- Added Query Client
+- Added async functions, `JSON()` function for JSON content type and fixed query
+
+## [0.4.8] - 2023-08-17
+
+### Features
+
+- Logger for dev mode and reusable client and curl output fixes
+
+## [0.4.7] - 2023-08-16
+
+### Features
+
+- Added `ToCurlOutput() string` function on the response
+
+## [0.4.6] - 2023-07-16
+
+### Features
+
+- Added `Name` to Database Options
+
+## [0.4.5] - 2023-07-15
+
+### Refactor
+
+- Reworked the DB tracing interface to not depend on appinsights lib and removed zap logs and general clean up
+
+## [0.4.4] - 2023-07-10
+
+### Features
+
+- Added `AddBodyRaw()` function to set the body of the http request directly
+
+## [0.4.3] - 2023-06-17
+
+### Bug Fixes
+
+- Removed copy bug
+
+## [0.4.2] - 2023-06-17
+
+### Bug Fixes
+
+- Removed ReqCtx nil pointer bug
+
+### Features
+
+- Added metadata to http hook
+- Constant and expo backoff retires
+
 ## [0.4.1] - 2023-04-07
 
 ### Docs
