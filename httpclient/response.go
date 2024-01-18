@@ -24,6 +24,7 @@ type HTTPResponse interface {
 	GetCookies() []*http.Cookie
 	GetElapsedTime() time.Duration
 	CURL() string
+	CleanUp()
 }
 
 func (r *_HttpRequest) GetStatusCode() int { return r.statusCode }
@@ -32,6 +33,7 @@ func (r *_HttpRequest) SetResult(responseBody any) error {
 	if r.err != nil {
 		return r.err
 	}
+	defer r.CleanUp()
 	return json.Unmarshal(r.resBody, responseBody)
 }
 
@@ -48,6 +50,7 @@ func (r *_HttpRequest) CatchError() error {
 func (r *_HttpRequest) Catch(
 	errorObject any,
 ) error {
+	defer r.CleanUp()
 	return json.Unmarshal(r.resBody, errorObject)
 }
 
@@ -66,33 +69,29 @@ func (r *_HttpRequest) doRequest() HTTPResponse {
 	if r.withLock {
 		defer r.afterRequest()
 	}
+
 	if r.err != nil {
 		return r
 	}
+
 	var req *http.Request
+
 	if r.body != nil {
 		req, r.err = http.NewRequest(r.method, r.url, bytes.NewBuffer(r.body))
 	} else {
 		req, r.err = http.NewRequest(r.method, r.url, nil)
 	}
-	if r.err != nil {
-		return r
-	}
-	// for i := range r.httpHooks.Before {
-	// 	// er := r.httpHooks.Before[i](req)
-	// 	// if er != nil {
-	// 	// 	r.response.StatusCode = -1
-	// 	// 	r.err = er
-	// 	// 	r.body = []byte(er.Error())
-	// 	// 	return r
-	// }
+
 	req = req.WithContext(r.traces.CreateContext(r.ctx))
+
 	req.Header = r.headers
 	for _, cookie := range r.Cookies {
 		req.AddCookie(cookie)
 	}
+
 	r.startTime = time.Now()
 	r.response, r.err = r.client.Do(req)
+
 	endTime := time.Now()
 	for i := range r.httpHooks.After {
 		r.httpHooks.After[i](req, r.response, HTTPMetadata{
@@ -100,18 +99,19 @@ func (r *_HttpRequest) doRequest() HTTPResponse {
 			EndTime:   endTime,
 		}, r.err)
 	}
+
 	if r.err != nil {
 		r.statusCode = -1
 		return r
 	}
+
 	r.statusCode = r.response.StatusCode
 
-	var byts []byte
-	byts, r.err = io.ReadAll(r.response.Body)
+	r.resBody, r.err = io.ReadAll(r.response.Body)
 	if r.err != nil {
 		return r
 	}
-	r.resBody = byts
+
 	r.response.Body.Close()
 	return r
 }
@@ -199,4 +199,25 @@ func (r *_HttpRequest) CURL() string {
 		builder.WriteString("'")
 	}
 	return builder.String()
+}
+
+// CleanUp cleans up the request object
+func (r *_HttpRequest) CleanUp() {
+	if r.response != nil && r.response.Body != nil {
+		r.response.Body.Close()
+	}
+	r.client.CloseIdleConnections()
+	r.resBody = nil
+	r.response = nil
+	r.err = nil
+	r.statusCode = 0
+	r.startTime = time.Time{}
+	r.headers = http.Header{}
+	r.Cookies = nil
+	r.body = nil
+	r.url = ""
+	r.method = ""
+	r.withLock = false
+	r.ctx = nil
+	r.httpHooks = nil
 }
