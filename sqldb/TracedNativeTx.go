@@ -3,7 +3,6 @@ package sqldb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 )
 
@@ -31,32 +30,32 @@ func (t *Tx) QueryContext(
 	now := time.Now()
 	res, err := t.Tx.QueryContext(ctx, query, args...)
 	after := time.Now()
+
 	if t.t == nil {
 		return res, err
 	}
-	fields := map[string]string{
-		"query": query,
-	}
+
+	fields := map[string]string{}
+
 	if err != nil {
 		fields["error"] = err.Error()
-		fields["args"] = fmt.Sprintf("%v", args)
 		t.t.TraceException(ctx, err, 0, fields)
 	}
-	sid, err2 := generateParentId()
-	if err2 != nil {
-		sid = "0000"
-	}
+
+	sid, _ := generateParentId()
+
 	t.t.TraceDependency(
 		ctx,
 		sid,
 		"sql",
 		t.name,
-		"Query "+query,
+		"Query",
 		err == nil,
 		now,
 		after,
 		fields,
 	)
+
 	return res, err
 }
 
@@ -77,22 +76,22 @@ func (t *Tx) ExecContext(
 	now := time.Now()
 	res, err := t.Tx.ExecContext(ctx, query, args...)
 	after := time.Now()
+
 	if t.t == nil {
 		return res, err
 	}
-	fields := map[string]string{
-		"query": query,
-	}
+
+	fields := map[string]string{}
+
 	if err != nil {
 		fields["error"] = err.Error()
-		fields["args"] = fmt.Sprintf("%v", args)
 		t.t.TraceException(ctx, err, 0, fields)
 	}
-	sid, err2 := generateParentId()
-	if err2 != nil {
-		sid = "0000"
-	}
-	t.t.TraceDependency(ctx, sid, "sql", t.name, "Exec "+query, err == nil, now, after, fields)
+
+	sid, _ := generateParentId()
+
+	t.t.TraceDependency(ctx, sid, "sql", t.name, "Exec", err == nil, now, after, fields)
+
 	return res, err
 }
 
@@ -108,26 +107,26 @@ func (t *Tx) QueryRowContext(ctx context.Context, query string, args ...interfac
 	now := time.Now()
 	res := t.Tx.QueryRowContext(ctx, query, args...)
 	after := time.Now()
+
 	if t.t == nil {
 		return res
 	}
-	fields := map[string]string{
-		"query": query,
-	}
-	sid, err := generateParentId()
-	if err != nil {
-		sid = "0000"
-	}
+
+	fields := map[string]string{}
+
+	sid, _ := generateParentId()
+
 	t.t.TraceDependency(
 		ctx,
 		sid,
 		"sql",
 		t.name,
-		"QueryRow "+query,
+		"QueryRow",
 		true,
 		now,
 		after,
 		fields,
 	)
+
 	return res
 }

@@ -3,7 +3,6 @@ package sqldb
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"sync"
 	"time"
 
@@ -264,22 +263,21 @@ func (d *dbImpl) ExecContext(ctx context.Context, query string, args ...any) (sq
 	now := time.Now()
 	res, err := d.db.ExecContext(ctx, query, args...)
 	after := time.Now()
+
 	if d.t == nil {
 		return res, err
 	}
-	fields := map[string]string{
-		"query": query,
-	}
+
+	fields := map[string]string{}
+
 	if err != nil {
 		fields["error"] = err.Error()
-		fields["args"] = fmt.Sprintf("%v", args)
 		d.t.TraceException(ctx, err, 0, fields)
 	}
-	sid, err2 := generateParentId()
-	if err2 != nil {
-		sid = "0000"
-	}
-	d.t.TraceDependency(ctx, sid, "sql", d.name, "EXEC "+query, err == nil, now, after, fields)
+
+	sid, _ := generateParentId()
+	d.t.TraceDependency(ctx, sid, "sql", d.name, "EXEC", err == nil, now, after, fields)
+
 	return res, err
 }
 
@@ -374,19 +372,17 @@ func (d *dbImpl) QueryContext(ctx context.Context, query string, args ...any) (*
 	if d.t == nil {
 		return res, err
 	}
-	fields := map[string]string{
-		"query": query,
-	}
+
+	fields := map[string]string{}
+
 	if err != nil {
 		fields["error"] = err.Error()
-		fields["args"] = fmt.Sprintf("%v", args)
 		d.t.TraceException(ctx, err, 0, fields)
 	}
-	sid, err2 := generateParentId()
-	if err2 != nil {
-		sid = "0000"
-	}
-	d.t.TraceDependency(ctx, sid, "sql", d.name, "Query "+query, err == nil, now, after, fields)
+
+	sid, _ := generateParentId()
+
+	d.t.TraceDependency(ctx, sid, "sql", d.name, "Query", err == nil, now, after, fields)
 	return res, err
 }
 
@@ -418,17 +414,16 @@ func (d *dbImpl) QueryRowContext(ctx context.Context, query string, args ...any)
 	now := time.Now()
 	r := d.db.QueryRowContext(ctx, query, args...)
 	after := time.Now()
+
 	if d.t == nil {
 		return r
 	}
-	fields := map[string]string{
-		"query": query,
-	}
-	sid, err := generateParentId()
-	if err != nil {
-		sid = "0000"
-	}
-	d.t.TraceDependency(ctx, sid, "sql", d.name, "QueryRow "+query, true, now, after, fields)
+
+	fields := map[string]string{}
+
+	sid, _ := generateParentId()
+
+	d.t.TraceDependency(ctx, sid, "sql", d.name, "QueryRow", true, now, after, fields)
 	return r
 }
 
