@@ -32,6 +32,7 @@ type DB interface {
 	SetConnMaxIdleTime(d time.Duration)
 	SetConnMaxLifetime(d time.Duration)
 	Stats() sql.DBStats
+	WithHook(h Hook)
 	SetMaxIdleConns(n int)
 	SetMaxOpenConns(n int)
 }
@@ -553,4 +554,11 @@ func (i *dbImpl) SetMaxIdleConns(n int) {
 //   - n: the number of connections to set
 func (i *dbImpl) SetMaxOpenConns(n int) {
 	i.db.SetMaxOpenConns(n)
+}
+
+// WithHook sets the hook for the database
+// params:
+//   - h: the hook to set
+func (i *dbImpl) WithHook(h Hook) {
+	i.hook = h
 }
