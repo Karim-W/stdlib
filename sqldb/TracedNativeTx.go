@@ -8,8 +8,9 @@ import (
 
 type Tx struct {
 	*sql.Tx
-	t    Trx
-	name string
+	hook  Hook
+	ctx   context.Context
+	begin time.Time
 }
 
 // QueryContext executes a query that returns rows, typically a SELECT.
@@ -27,33 +28,27 @@ func (t *Tx) QueryContext(
 	query string,
 	args ...interface{},
 ) (*sql.Rows, error) {
-	now := time.Now()
-	res, err := t.Tx.QueryContext(ctx, query, args...)
-	after := time.Now()
+	start := time.Now()
 
-	if t.t == nil {
+	res, err := t.Tx.Query(query, args...)
+
+	end := time.Now()
+
+	if t.hook == nil {
 		return res, err
-	}
-
-	fields := map[string]string{}
-
-	if err != nil {
-		fields["error"] = err.Error()
-		t.t.TraceException(ctx, err, 0, fields)
 	}
 
 	sid, _ := generateParentId()
 
-	t.t.TraceDependency(
+	t.hook.AfterQuery(
 		ctx,
 		sid,
-		"sql",
-		t.name,
-		"Query",
-		err == nil,
-		now,
-		after,
-		fields,
+		"QueryContext",
+		query,
+		args,
+		start,
+		end,
+		err,
 	)
 
 	return res, err
@@ -73,24 +68,28 @@ func (t *Tx) ExecContext(
 	query string,
 	args ...interface{},
 ) (sql.Result, error) {
-	now := time.Now()
+	start := time.Now()
+
 	res, err := t.Tx.ExecContext(ctx, query, args...)
-	after := time.Now()
 
-	if t.t == nil {
+	end := time.Now()
+
+	if t.hook == nil {
 		return res, err
-	}
-
-	fields := map[string]string{}
-
-	if err != nil {
-		fields["error"] = err.Error()
-		t.t.TraceException(ctx, err, 0, fields)
 	}
 
 	sid, _ := generateParentId()
 
-	t.t.TraceDependency(ctx, sid, "sql", t.name, "Exec", err == nil, now, after, fields)
+	t.hook.AfterQuery(
+		ctx,
+		sid,
+		"ExecContext",
+		query,
+		args,
+		start,
+		end,
+		err,
+	)
 
 	return res, err
 }
@@ -104,29 +103,93 @@ func (t *Tx) ExecContext(
 // returns:
 //   - *sql.Row: row returned by query
 func (t *Tx) QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	now := time.Now()
-	res := t.Tx.QueryRowContext(ctx, query, args...)
-	after := time.Now()
+	start := time.Now()
 
-	if t.t == nil {
+	res := t.Tx.QueryRowContext(ctx, query, args...)
+
+	end := time.Now()
+
+	if t.hook == nil {
 		return res
 	}
 
-	fields := map[string]string{}
-
 	sid, _ := generateParentId()
 
-	t.t.TraceDependency(
+	t.hook.AfterQuery(
 		ctx,
 		sid,
-		"sql",
-		t.name,
-		"QueryRow",
-		true,
-		now,
-		after,
-		fields,
+		"QueryRowContext",
+		query,
+		args,
+		start,
+		end,
+		nil,
 	)
 
 	return res
+}
+
+// Commit commits the transaction.
+func (t *Tx) Commit() error {
+	start := time.Now()
+
+	err := t.Tx.Commit()
+
+	end := time.Now()
+
+	if t.hook == nil {
+		return err
+	}
+
+	sid, _ := generateParentId()
+
+	t.hook.AfterBegin(
+		t.ctx,
+		sid,
+		t.begin,
+		end,
+		err,
+	)
+
+	t.hook.AfterCommit(
+		t.ctx,
+		sid,
+		start,
+		time.Now(),
+		err,
+	)
+
+	return err
+}
+
+// Rollback aborts the transaction.
+func (t *Tx) Rollback() error {
+	start := time.Now()
+
+	err := t.Tx.Rollback()
+
+	end := time.Now()
+
+	if t.hook == nil {
+		return err
+	}
+
+	sid, _ := generateParentId()
+
+	t.hook.AfterBegin(
+		t.ctx,
+		sid,
+		t.begin,
+		end,
+		err,
+	)
+
+	t.hook.AfterRollback(
+		t.ctx,
+		start,
+		time.Now(),
+		err,
+	)
+
+	return err
 }

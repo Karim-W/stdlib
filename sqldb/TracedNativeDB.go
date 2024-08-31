@@ -34,7 +34,6 @@ type DB interface {
 	Stats() sql.DBStats
 	SetMaxIdleConns(n int)
 	SetMaxOpenConns(n int)
-	WithTrx(t Trx) DB
 }
 
 type Options struct {
@@ -42,14 +41,14 @@ type Options struct {
 	MaxOpenConns   int
 	PanicablePings bool
 	Name           string
+	Hook           Hook
 }
 
 type dbImpl struct {
 	db       *sql.DB
-	pingLock sync.Mutex
-	t        Trx
+	pingLock *sync.Mutex
 	driver   string
-	name     string
+	hook     Hook
 }
 
 // New returns a NativeDatabase interface for the given driver and DSN
@@ -82,11 +81,12 @@ func NewWithOptions(Driver string, DSN string, opts *Options) DB {
 		db:     db,
 		driver: Driver,
 	}
+
 	if opts == nil {
 		return ndb
 	}
 	if opts.PanicablePings {
-		ndb.pingLock = sync.Mutex{}
+		ndb.pingLock = &sync.Mutex{}
 		ndb.Ping()
 	}
 	if opts.MaxIdleConns > 0 {
@@ -95,8 +95,8 @@ func NewWithOptions(Driver string, DSN string, opts *Options) DB {
 	if opts.MaxOpenConns > 0 {
 		ndb.SetMaxOpenConns(opts.MaxOpenConns)
 	}
-	if opts.Name != "" {
-		ndb.name = opts.Name
+	if opts.Hook != nil {
+		ndb.hook = opts.Hook
 	}
 	return ndb
 }
@@ -110,21 +110,14 @@ func TracedNativeDBWrapper(
 	t Trx,
 	name string,
 ) DB {
-	l, err := zap.NewProduction()
-	if err != nil {
-		panic(err)
-	}
 	switch Driver {
 	case "postgres":
 		if db, err := sql.Open("postgres", DSN); err != nil {
 			panic(err)
 		} else {
-			l.Info("[DATABASE]\tSucessfuly Connected to postgres database")
 			ndb := &dbImpl{
 				db:     db,
-				t:      t,
 				driver: Driver,
-				name:   name,
 			}
 			return ndb
 		}
@@ -150,22 +143,18 @@ func TracedNativeDBWrapperWithOptions(
 		} else {
 			ndb = &dbImpl{
 				db:     db,
-				t:      t,
 				driver: Driver,
-				name:   name,
 			}
 			if opts != nil {
 				if opts.PanicablePings {
-					ndb.pingLock = sync.Mutex{}
+					ndb.pingLock = &sync.Mutex{}
 					ndb.Ping()
 				}
+				ndb.hook = opts.Hook
 			}
 		}
 	default:
 		panic("Unsupported driver")
-	}
-	if ndb == nil {
-		panic("db is nil")
 	}
 	if opts != nil {
 		if opts.MaxIdleConns == 0 {
@@ -184,9 +173,7 @@ func DBWarpper(
 	logger *zap.Logger,
 ) DB {
 	return &dbImpl{
-		db:   db,
-		t:    t,
-		name: name,
+		db: db,
 	}
 }
 
@@ -198,11 +185,14 @@ func DBWarpper(
 //   - *Tx: the transaction
 //   - error: any error that occurred
 func (d *dbImpl) Begin() (*Tx, error) {
+	now := time.Now()
+
 	t, err := d.db.Begin()
 	if err != nil {
 		return nil, err
 	}
-	return &Tx{t, d.t, d.name}, nil
+
+	return &Tx{t, d.hook, context.Background(), now}, nil
 }
 
 // BeginTx starts and returns a new transaction.
@@ -214,12 +204,14 @@ func (d *dbImpl) Begin() (*Tx, error) {
 //   - *Tx: the transaction
 //   - error: any error that occurred
 func (d *dbImpl) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) {
+	now := time.Now()
+
 	t, err := d.db.BeginTx(ctx, opts)
 	if err != nil {
 		return nil, err
 	}
-	tx := &Tx{t, d.t, d.name}
-	return tx, nil
+
+	return &Tx{t, d.hook, ctx, now}, nil
 }
 
 // Close closes the database, releasing any open resources.
@@ -245,7 +237,29 @@ func (d *dbImpl) Conn(ctx context.Context) (*sql.Conn, error) {
 //   - sql.Result: the result of the query
 //   - error: any error that occurred
 func (d *dbImpl) Exec(query string, args ...any) (sql.Result, error) {
+	start := time.Now()
+
 	res, err := d.db.Exec(query, args...)
+
+	end := time.Now()
+
+	if d.hook == nil {
+		return res, err
+	}
+
+	sid, _ := generateParentId()
+
+	d.hook.AfterQuery(
+		context.Background(),
+		sid,
+		"Exec",
+		query,
+		args,
+		start,
+		end,
+		err,
+	)
+
 	return res, err
 }
 
@@ -260,23 +274,28 @@ func (d *dbImpl) Exec(query string, args ...any) (sql.Result, error) {
 //   - sql.Result: the result of the query
 //   - error: any error that occurred
 func (d *dbImpl) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
-	now := time.Now()
-	res, err := d.db.ExecContext(ctx, query, args...)
-	after := time.Now()
+	start := time.Now()
 
-	if d.t == nil {
+	res, err := d.db.ExecContext(ctx, query, args...)
+
+	end := time.Now()
+
+	if d.hook == nil {
 		return res, err
 	}
 
-	fields := map[string]string{}
-
-	if err != nil {
-		fields["error"] = err.Error()
-		d.t.TraceException(ctx, err, 0, fields)
-	}
-
 	sid, _ := generateParentId()
-	d.t.TraceDependency(ctx, sid, "sql", d.name, "EXEC", err == nil, now, after, fields)
+
+	d.hook.AfterQuery(
+		ctx,
+		sid,
+		"ExecContext",
+		query,
+		args,
+		start,
+		end,
+		err,
+	)
 
 	return res, err
 }
@@ -289,6 +308,10 @@ func (d *dbImpl) ExecContext(ctx context.Context, query string, args ...any) (sq
 // returns:
 //   - error: any error that occurred
 func (d *dbImpl) Ping() error {
+	if d.pingLock == nil {
+		return nil
+	}
+
 	d.pingLock.Lock()
 	var err error
 	go func() {
@@ -351,7 +374,29 @@ func (d *dbImpl) PrepareContext(ctx context.Context, query string) (*sql.Stmt, e
 //   - *sql.Rows: the rows returned by the query
 //   - error: any error that occurred
 func (d *dbImpl) Query(query string, args ...any) (*sql.Rows, error) {
+	start := time.Now()
+
 	res, err := d.db.Query(query, args...)
+
+	end := time.Now()
+
+	if d.hook == nil {
+		return res, err
+	}
+
+	sid, _ := generateParentId()
+
+	d.hook.AfterQuery(
+		context.Background(),
+		sid,
+		"Query",
+		query,
+		args,
+		start,
+		end,
+		err,
+	)
+
 	return res, err
 }
 
@@ -366,23 +411,29 @@ func (d *dbImpl) Query(query string, args ...any) (*sql.Rows, error) {
 //   - *sql.Rows: the rows returned by the query
 //   - error: any error that occurred
 func (d *dbImpl) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
-	now := time.Now()
-	res, err := d.db.QueryContext(ctx, query, args...)
-	after := time.Now()
-	if d.t == nil {
+	start := time.Now()
+
+	res, err := d.db.Query(query, args...)
+
+	end := time.Now()
+
+	if d.hook == nil {
 		return res, err
-	}
-
-	fields := map[string]string{}
-
-	if err != nil {
-		fields["error"] = err.Error()
-		d.t.TraceException(ctx, err, 0, fields)
 	}
 
 	sid, _ := generateParentId()
 
-	d.t.TraceDependency(ctx, sid, "sql", d.name, "Query", err == nil, now, after, fields)
+	d.hook.AfterQuery(
+		ctx,
+		sid,
+		"QueryContext",
+		query,
+		args,
+		start,
+		end,
+		err,
+	)
+
 	return res, err
 }
 
@@ -396,8 +447,30 @@ func (d *dbImpl) QueryContext(ctx context.Context, query string, args ...any) (*
 // returns:
 //   - *sql.Row: the row returned by the query
 func (d *dbImpl) QueryRow(query string, args ...any) *sql.Row {
-	r := d.db.QueryRow(query, args...)
-	return r
+	start := time.Now()
+
+	res := d.db.QueryRow(query, args...)
+
+	end := time.Now()
+
+	if d.hook == nil {
+		return res
+	}
+
+	sid, _ := generateParentId()
+
+	d.hook.AfterQuery(
+		context.Background(),
+		sid,
+		"QueryRow",
+		query,
+		args,
+		start,
+		end,
+		res.Err(),
+	)
+
+	return res
 }
 
 // QueryRowContext executes a query that is expected to return at most one row.
@@ -411,20 +484,30 @@ func (d *dbImpl) QueryRow(query string, args ...any) *sql.Row {
 // returns:
 //   - *sql.Row: the row returned by the query
 func (d *dbImpl) QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row {
-	now := time.Now()
-	r := d.db.QueryRowContext(ctx, query, args...)
-	after := time.Now()
+	start := time.Now()
 
-	if d.t == nil {
-		return r
+	res := d.db.QueryRow(query, args...)
+
+	end := time.Now()
+
+	if d.hook == nil {
+		return res
 	}
-
-	fields := map[string]string{}
 
 	sid, _ := generateParentId()
 
-	d.t.TraceDependency(ctx, sid, "sql", d.name, "QueryRow", true, now, after, fields)
-	return r
+	d.hook.AfterQuery(
+		ctx,
+		sid,
+		"QueryRow",
+		query,
+		args,
+		start,
+		end,
+		res.Err(),
+	)
+
+	return res
 }
 
 // SetConnMaxIdleTime sets the maximum amount of time a connection may be idle.
@@ -470,10 +553,4 @@ func (i *dbImpl) SetMaxIdleConns(n int) {
 //   - n: the number of connections to set
 func (i *dbImpl) SetMaxOpenConns(n int) {
 	i.db.SetMaxOpenConns(n)
-}
-
-// WithTrx Adds a tracer to the Database Object
-func (i *dbImpl) WithTrx(t Trx) DB {
-	i.t = t
-	return i
 }
