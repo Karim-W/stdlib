@@ -16,9 +16,7 @@ func TestSuccessfulBegin(t *testing.T) {
 	defer d.Close()
 	assert.NotNil(t, mock)
 	mock.ExpectBegin()
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -29,9 +27,7 @@ func TestFailedBegin(t *testing.T) {
 	assert.Nil(t, err)
 	defer d.Close()
 	assert.NotNil(t, mock)
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.NotNil(t, err)
 	assert.Nil(t, tx)
@@ -44,9 +40,7 @@ func TestFailedBeginReturnError(t *testing.T) {
 	assert.NotNil(t, mock)
 	err = fmt.Errorf("some error")
 	mock.ExpectBegin().WillReturnError(err)
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.NotNil(t, err)
 	assert.Nil(t, tx)
@@ -58,9 +52,7 @@ func TestClose(t *testing.T) {
 	defer d.Close()
 	assert.NotNil(t, mock)
 	mock.ExpectClose()
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	err = db.Close()
 	assert.Nil(t, err)
 }
@@ -72,9 +64,7 @@ func TestFailedClose(t *testing.T) {
 	assert.NotNil(t, mock)
 	err = fmt.Errorf("some error")
 	mock.ExpectClose().WillReturnError(err)
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	err = db.Close()
 	assert.NotNil(t, err)
 }
@@ -86,10 +76,8 @@ func TestPing(t *testing.T) {
 	assert.NotNil(t, mock)
 	mock.ExpectPing()
 
-	db := &dbImpl{
-		db: d,
-	}
-	err = db.Ping()
+	db := newdbImpl(&Options{PanicablePings: true}, d, "test-db")
+	db.Ping()
 	assert.Nil(t, err)
 }
 
@@ -100,9 +88,7 @@ func TestPrepare(t *testing.T) {
 	assert.NotNil(t, mock)
 	mock.ExpectPrepare("INSERT INTO foo VALUES (?)")
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	stmt, err := db.Prepare("INSERT INTO foo VALUES (?)")
 	assert.Nil(t, err)
 	assert.NotNil(t, stmt)
@@ -116,9 +102,7 @@ func TestFailedPrepare(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectPrepare("INSERT INTO foo VALUES (?)").WillReturnError(err)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	stmt, err := db.Prepare("INSERT INTO foo VALUES (?)")
 	assert.NotNil(t, err)
 	assert.Nil(t, stmt)
@@ -131,9 +115,7 @@ func TestPrepareContext(t *testing.T) {
 	assert.NotNil(t, mock)
 	mock.ExpectPrepare("INSERT INTO foo VALUES (?)")
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	stmt, err := db.PrepareContext(context.TODO(), "INSERT INTO foo VALUES (?)")
 	assert.Nil(t, err)
 	assert.NotNil(t, stmt)
@@ -147,9 +129,7 @@ func TestFailedPrepareContext(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectPrepare("INSERT INTO foo VALUES (?)").WillReturnError(err)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	stmt, err := db.PrepareContext(context.TODO(), "INSERT INTO foo VALUES (?)")
 	assert.NotNil(t, err)
 	assert.Nil(t, stmt)
@@ -164,9 +144,7 @@ func TestQuery(t *testing.T) {
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"bar"}).AddRow("baz"))
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	rows, err := db.Query("SELECT bar FROM foo")
 	assert.Nil(t, err)
 	assert.NotNil(t, rows)
@@ -180,9 +158,7 @@ func TestFailedQuery(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectQuery("SELECT bar FROM foo").WillReturnError(err)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	rows, err := db.Query("SELECT bar FROM foo")
 	assert.NotNil(t, err)
 	assert.Nil(t, rows)
@@ -196,9 +172,7 @@ func TestFailedQueryMistmatch(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectQuery("SELECT * FROM foo WHERE id = $1").WithArgs(1)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	rows, err := db.Query("SELECT * FROM foo WHERE id = $1")
 	assert.NotNil(t, err)
 	assert.Nil(t, rows)
@@ -233,9 +207,7 @@ func TestQueryContext(t *testing.T) {
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"bar"}).AddRow("baz"))
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	rows, err := db.QueryContext(context.TODO(), "SELECT bar FROM foo")
 	assert.Nil(t, err)
 	assert.NotNil(t, rows)
@@ -249,9 +221,7 @@ func TestFailedQueryContext(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectQuery("SELECT bar FROM foo").WillReturnError(err)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	rows, err := db.QueryContext(context.TODO(), "SELECT bar FROM foo")
 	assert.NotNil(t, err)
 	assert.Nil(t, rows)
@@ -265,9 +235,7 @@ func TestFailedQueryContextMistmatch(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectQuery("SELECT * FROM foo WHERE id = $1").WithArgs(1)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	rows, err := db.QueryContext(context.TODO(), "SELECT * FROM foo WHERE id = $1")
 	assert.NotNil(t, err)
 	assert.Nil(t, rows)
@@ -282,9 +250,7 @@ func TestQueryRow(t *testing.T) {
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"bar"}).AddRow("baz"))
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	row := db.QueryRow("SELECT bar FROM foo")
 	assert.NotNil(t, row)
 }
@@ -297,9 +263,7 @@ func TestFailedQueryRow(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectQuery("SELECT bar FROM foo").WillReturnError(err)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	row := db.QueryRow("SELECT bar FROM foo")
 	assert.NotNil(t, row)
 }
@@ -312,9 +276,7 @@ func TestFailedQueryRowMistmatch(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectQuery("SELECT * FROM foo WHERE id = $1").WithArgs(1)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	row := db.QueryRow("SELECT * FROM foo WHERE id = $1")
 	assert.NotNil(t, row)
 }
@@ -328,9 +290,7 @@ func TestQueryRowContext(t *testing.T) {
 		WithArgs().
 		WillReturnRows(sqlmock.NewRows([]string{"bar"}).AddRow("baz"))
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	row := db.QueryRowContext(context.TODO(), "SELECT bar FROM foo")
 	assert.NotNil(t, row)
 }
@@ -343,9 +303,7 @@ func TestFailedQueryRowContext(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectQuery("SELECT bar FROM foo").WillReturnError(err)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	row := db.QueryRowContext(context.TODO(), "SELECT bar FROM foo")
 	assert.NotNil(t, row)
 }
@@ -358,9 +316,7 @@ func TestFailedQueryRowContextMistmatch(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectQuery("SELECT * FROM foo WHERE id = $1").WithArgs(1)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	row := db.QueryRowContext(context.TODO(), "SELECT * FROM foo WHERE id = $1")
 	assert.NotNil(t, row)
 }
@@ -372,9 +328,7 @@ func TestExec(t *testing.T) {
 	assert.NotNil(t, mock)
 	mock.ExpectExec("INSERT INTO foo").WithArgs().WillReturnResult(sqlmock.NewResult(1, 1))
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	result, err := db.Exec("INSERT INTO foo")
 	assert.Nil(t, err)
 	assert.NotNil(t, result)
@@ -388,9 +342,7 @@ func TestFailedExec(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectExec("INSERT INTO foo").WillReturnError(err)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	result, err := db.Exec("INSERT INTO foo")
 	assert.NotNil(t, err)
 	assert.Nil(t, result)
@@ -404,9 +356,7 @@ func TestFailedExecMistmatch(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectExec("INSERT INTO foo").WithArgs(1)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	result, err := db.Exec("INSERT INTO foo")
 	assert.NotNil(t, err)
 	assert.Nil(t, result)
@@ -419,9 +369,7 @@ func TestExecContext(t *testing.T) {
 	assert.NotNil(t, mock)
 	mock.ExpectExec("INSERT INTO foo").WithArgs().WillReturnResult(sqlmock.NewResult(1, 1))
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	result, err := db.ExecContext(context.TODO(), "INSERT INTO foo")
 	assert.Nil(t, err)
 	assert.NotNil(t, result)
@@ -435,9 +383,7 @@ func TestFailedExecContext(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectExec("INSERT INTO foo").WillReturnError(err)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	result, err := db.ExecContext(context.TODO(), "INSERT INTO foo")
 	assert.NotNil(t, err)
 	assert.Nil(t, result)
@@ -451,9 +397,7 @@ func TestFailedExecContextMistmatch(t *testing.T) {
 	err = fmt.Errorf("some error")
 	mock.ExpectExec("INSERT INTO foo").WithArgs(1)
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	result, err := db.ExecContext(context.TODO(), "INSERT INTO foo")
 	assert.NotNil(t, err)
 	assert.Nil(t, result)
@@ -467,9 +411,7 @@ func TestSuccessfulTransaction(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectCommit()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -485,9 +427,7 @@ func TestFailedTransaction(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectRollback()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -503,9 +443,7 @@ func TestFailedTransactionCommit(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectCommit().WillReturnError(fmt.Errorf("some error"))
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -522,9 +460,7 @@ func TestSuccessTransactionExec(t *testing.T) {
 	mock.ExpectExec("INSERT INTO foo").WithArgs().WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -544,9 +480,7 @@ func TestFailedTransactionExec(t *testing.T) {
 	mock.ExpectExec("INSERT INTO foo").WithArgs().WillReturnError(fmt.Errorf("some error"))
 	mock.ExpectRollback()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -566,9 +500,7 @@ func TestSuccessTranasactionExecContext(t *testing.T) {
 	mock.ExpectExec("INSERT INTO foo").WithArgs().WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -588,9 +520,7 @@ func TestFailedTransactionExecContext(t *testing.T) {
 	mock.ExpectExec("INSERT INTO foo").WithArgs().WillReturnError(fmt.Errorf("some error"))
 	mock.ExpectRollback()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -612,9 +542,7 @@ func TestSuccessTransactionQuery(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"bar"}).AddRow("baz"))
 	mock.ExpectCommit()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -634,9 +562,7 @@ func TestFailedTransactionQuery(t *testing.T) {
 	mock.ExpectQuery("SELECT bar FROM foo").WithArgs().WillReturnError(fmt.Errorf("some error"))
 	mock.ExpectRollback()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -658,9 +584,7 @@ func TestSuccessTransactionQueryContext(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"bar"}).AddRow("baz"))
 	mock.ExpectCommit()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -680,9 +604,7 @@ func TestFailedTransactionQueryContext(t *testing.T) {
 	mock.ExpectQuery("SELECT bar FROM foo").WithArgs().WillReturnError(fmt.Errorf("some error"))
 	mock.ExpectRollback()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -704,9 +626,7 @@ func TestSuccessTransactionQueryRow(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"bar"}).AddRow("baz"))
 	mock.ExpectCommit()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -725,9 +645,7 @@ func TestFailedTransactionQueryRow(t *testing.T) {
 	mock.ExpectQuery("SELECT bar FROM foo").WithArgs().WillReturnError(fmt.Errorf("some error"))
 	mock.ExpectRollback()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -748,9 +666,7 @@ func TestSuccessTransactionQueryRowContext(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"bar"}).AddRow("baz"))
 	mock.ExpectCommit()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)
@@ -769,9 +685,7 @@ func TestFailedTransactionQueryRowContext(t *testing.T) {
 	mock.ExpectQuery("SELECT bar FROM foo").WithArgs().WillReturnError(fmt.Errorf("some error"))
 	mock.ExpectRollback()
 
-	db := &dbImpl{
-		db: d,
-	}
+	db := newdbImpl(nil, d, "test-db")
 	tx, err := db.Begin()
 	assert.Nil(t, err)
 	assert.NotNil(t, tx)

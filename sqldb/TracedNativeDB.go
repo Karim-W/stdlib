@@ -3,6 +3,7 @@ package sqldb
 import (
 	"context"
 	"database/sql"
+	"io"
 	"sync"
 	"time"
 
@@ -21,7 +22,7 @@ type DB interface {
 	Conn(ctx context.Context) (*sql.Conn, error)
 	Exec(query string, args ...any) (sql.Result, error)
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-	Ping() error
+	Ping()
 	PingContext(ctx context.Context) error
 	Prepare(query string) (*sql.Stmt, error)
 	PrepareContext(ctx context.Context, query string) (*sql.Stmt, error)
@@ -46,10 +47,28 @@ type Options struct {
 }
 
 type dbImpl struct {
-	db       *sql.DB
-	pingLock *sync.Mutex
-	driver   string
-	hook     Hook
+	Opts *Options
+
+	db     *sql.DB
+	driver string
+	hook   Hook
+
+	closeCh   chan struct{}
+	closeOnce sync.Once
+
+	wg       *sync.WaitGroup
+	pingOnce sync.Once
+}
+
+func newdbImpl(opts *Options, db *sql.DB, driver string) *dbImpl {
+	return &dbImpl{
+		Opts:    opts,
+		closeCh: make(chan struct{}),
+		wg:      &sync.WaitGroup{},
+
+		db:     db,
+		driver: driver,
+	}
 }
 
 // New returns a NativeDatabase interface for the given driver and DSN
@@ -78,16 +97,11 @@ func NewWithOptions(Driver string, DSN string, opts *Options) DB {
 	if err != nil {
 		panic(err)
 	}
-	ndb := &dbImpl{
-		db:     db,
-		driver: Driver,
-	}
-
+	ndb := newdbImpl(opts, db, Driver)
 	if opts == nil {
 		return ndb
 	}
 	if opts.PanicablePings {
-		ndb.pingLock = &sync.Mutex{}
 		ndb.Ping()
 	}
 	if opts.MaxIdleConns > 0 {
@@ -113,15 +127,11 @@ func TracedNativeDBWrapper(
 ) DB {
 	switch Driver {
 	case "postgres":
-		if db, err := sql.Open("postgres", DSN); err != nil {
+		db, err := sql.Open("postgres", DSN)
+		if err != nil {
 			panic(err)
-		} else {
-			ndb := &dbImpl{
-				db:     db,
-				driver: Driver,
-			}
-			return ndb
 		}
+		return newdbImpl(nil, db, Driver)
 	default:
 		panic("Unsupported driver")
 	}
@@ -139,21 +149,18 @@ func TracedNativeDBWrapperWithOptions(
 	var ndb *dbImpl
 	switch Driver {
 	case "postgres":
-		if db, err := sql.Open("postgres", DSN); err != nil {
+		db, err := sql.Open("postgres", DSN)
+		if err != nil {
 			panic(err)
-		} else {
-			ndb = &dbImpl{
-				db:     db,
-				driver: Driver,
-			}
-			if opts != nil {
-				if opts.PanicablePings {
-					ndb.pingLock = &sync.Mutex{}
-					ndb.Ping()
-				}
-				ndb.hook = opts.Hook
-			}
 		}
+		ndb = newdbImpl(opts, db, Driver)
+		if opts != nil {
+			if opts.PanicablePings {
+				ndb.Ping()
+			}
+			ndb.hook = opts.Hook
+		}
+
 	default:
 		panic("Unsupported driver")
 	}
@@ -173,9 +180,7 @@ func DBWarpper(
 	name string,
 	logger *zap.Logger,
 ) DB {
-	return &dbImpl{
-		db: db,
-	}
+	return newdbImpl(nil, db, "")
 }
 
 // Begin starts and returns a new transaction.
@@ -219,6 +224,10 @@ func (d *dbImpl) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 // It is rare to Close a DB, as the DB handle is meant to be
 // long-lived and shared between many goroutines.
 func (d *dbImpl) Close() error {
+	d.closeOnce.Do(func() {
+		close(d.closeCh)
+	})
+	d.wg.Wait()
 	return d.db.Close()
 }
 
@@ -308,23 +317,33 @@ func (d *dbImpl) ExecContext(ctx context.Context, query string, args ...any) (sq
 //
 // returns:
 //   - error: any error that occurred
-func (d *dbImpl) Ping() error {
-	if d.pingLock == nil {
-		return nil
+func (d *dbImpl) Ping() {
+	if !d.Opts.PanicablePings {
+		return
 	}
 
-	d.pingLock.Lock()
-	var err error
-	go func() {
+	pinger := func() {
+		defer d.wg.Done()
+
+		t := time.NewTicker(5 * time.Second)
+		defer t.Stop()
+
 		for {
-			time.Sleep(time.Second * 5)
-			err = d.db.Ping()
-			if err != nil {
-				panic(err)
+			select {
+			case <-d.closeCh:
+				return // db is close stop pinging
+			case <-t.C:
+				if err := d.db.Ping(); err != nil && err != io.EOF {
+					panic(err)
+				}
 			}
 		}
-	}()
-	return nil
+	}
+
+	d.pingOnce.Do(func() {
+		d.wg.Add(1)
+		go pinger()
+	})
 }
 
 // PingContext verifies a connection to the database is still alive,
